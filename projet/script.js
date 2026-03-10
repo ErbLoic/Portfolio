@@ -351,3 +351,4 @@ async function refreshProjectInBackground(projectId) {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
