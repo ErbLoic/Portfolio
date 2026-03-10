@@ -314,7 +314,7 @@ async function init() {
         refreshProjectInBackground(projectId);
         return;
     }
-
+    
     // Pas de cache, chargement complet
     startLoadingAnimation();
     
