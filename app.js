@@ -523,7 +523,6 @@ function renderAllSections(data) {
     if (!data) return false;
     
     renderPortfolio(data);
-    renderCompetences(data.competences);
     renderStages(data.stages);
     renderRealisations(data);
     renderProjects(data.projects);
