@@ -182,12 +182,12 @@ function renderProject(project) {
         `;
     }
     
-    // Contenu détaillé (si disponible depuis l'API détail)
-    if (project.content) {
+    // Description détaillée (long_description)
+    if (project.long_description) {
         html += `
             <div class="detail-section">
                 <h2 class="section-title">Détails du projet</h2>
-                <div class="detail-description">${project.content}</div>
+                <div class="detail-description">${project.long_description.replace(/\n/g, '<br>')}</div>
             </div>
         `;
     }

@@ -176,12 +176,12 @@ function renderRealisation(realisation) {
         `;
     }
     
-    // Contenu détaillé
-    if (realisation.content) {
+    // Description détaillée (long_description)
+    if (realisation.long_description) {
         html += `
             <div class="detail-section">
                 <h2 class="section-title">Détails</h2>
-                <div class="detail-description">${realisation.content}</div>
+                <div class="detail-description">${realisation.long_description.replace(/\n/g, '<br>')}</div>
             </div>
         `;
     }
