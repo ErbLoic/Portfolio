@@ -1,10 +1,37 @@
 // Configuration de l'API
 const API_BASE_URL = 'https://portfolio-mlb3.onrender.com/api';
+const BASE_URL = 'https://portfolio-mlb3.onrender.com';
 
 // Clé de cache localStorage
 const CACHE_KEY = 'portfolio_data_cache';
 const REALISATION_CACHE_PREFIX = 'realisation_detail_';
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 heures
+
+// ========================================
+// Helper pour les images
+// ========================================
+
+function getImageUrl(img) {
+    if (!img) return '';
+    // Si c'est une string, c'est déjà l'URL
+    if (typeof img === 'string') {
+        if (img.startsWith('http')) return img;
+        return `${BASE_URL}${img.startsWith('/') ? '' : '/'}${img}`;
+    }
+    // Chercher les propriétés communes pour l'URL
+    const url = img.url || img.image_url || img.path || img.src || img.file || '';
+    if (!url) return '';
+    // Si l'URL est déjà absolue
+    if (url.startsWith('http')) return url;
+    // Sinon, ajouter le base URL
+    return `${BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+function getImageAlt(img, fallback) {
+    if (!img) return fallback;
+    if (typeof img === 'string') return fallback;
+    return img.alt || img.caption || img.title || img.description || fallback;
+}
 
 // ========================================
 // Système de cache
@@ -190,6 +217,62 @@ function renderRealisation(realisation) {
         `;
     }
     
+    // Entreprise (pour les stages)
+    if (realisation.company) {
+        const company = realisation.company;
+        const companyLogoUrl = company.photo_url 
+            ? (company.photo_url.startsWith('http') ? company.photo_url : `${BASE_URL}/storage/companies/${company.photo_url}`)
+            : '';
+        html += `
+            <div class="detail-section">
+                <h2 class="section-title">Entreprise</h2>
+                <div class="company-card">
+                    ${companyLogoUrl ? `
+                        <div class="company-logo">
+                            <img src="../${company.photo_url}" alt="${company.name}" loading="lazy">
+                        </div>
+                    ` : ''}
+                    <div class="company-info">
+                        <h3 class="company-name">${company.name}</h3>
+                        ${company.sector ? `<span class="company-sector">${company.sector}</span>` : ''}
+                        ${company.location ? `
+                            <p class="company-location">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
+                                    <circle cx="12" cy="10" r="3"/>
+                                </svg>
+                                ${company.location}
+                            </p>
+                        ` : ''}
+                        ${company.description ? `<p class="company-description">${company.description}</p>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Images / Galerie
+    if (realisation.images && realisation.images.length > 0) {
+        html += `
+            <div class="detail-section">
+                <h2 class="section-title">Captures d'écran</h2>
+                <div class="image-gallery">
+                    ${realisation.images.map((img, index) => `
+                        <div class="gallery-item" onclick="openLightbox(${index})">
+                            <img src="${getImageUrl(img)}" alt="${getImageAlt(img, realisation.title + ' - Image ' + (index + 1))}" loading="lazy">
+                            <div class="gallery-overlay">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="11" cy="11" r="8"/>
+                                    <path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/>
+                                </svg>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
     // Liens
     if (realisation.github_url || realisation.demo_url || realisation.url) {
         html += `
@@ -227,6 +310,11 @@ function renderRealisation(realisation) {
     }
     
     html += `</div>`;
+    
+    // Ajouter le lightbox au body si images présentes
+    if (realisation.images && realisation.images.length > 0) {
+        addLightboxToDOM(realisation.images, realisation.title);
+    }
     
     container.innerHTML = html;
 }
@@ -340,6 +428,126 @@ async function refreshRealisationInBackground(realisationId) {
         }
     } catch (error) {
         console.warn('Rafraîchissement en arrière-plan échoué:', error);
+    }
+}
+
+// ========================================
+// Lightbox / Galerie d'images
+// ========================================
+
+let currentImageIndex = 0;
+let galleryImages = [];
+
+function addLightboxToDOM(images, title) {
+    galleryImages = images;
+    
+    // Supprimer ancien lightbox si existe
+    const existingLightbox = document.getElementById('lightbox');
+    if (existingLightbox) existingLightbox.remove();
+    
+    const lightboxHTML = `
+        <div id="lightbox" class="lightbox" onclick="closeLightbox(event)">
+            <button class="lightbox-close" onclick="closeLightbox(event)" aria-label="Fermer">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </button>
+            <button class="lightbox-nav lightbox-prev" onclick="navigateLightbox(-1, event)" aria-label="Image précédente">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M15 18l-6-6 6-6"/>
+                </svg>
+            </button>
+            <div class="lightbox-content" onclick="event.stopPropagation()">
+                <img id="lightbox-image" src="" alt="">
+                <div class="lightbox-caption">
+                    <span id="lightbox-title"></span>
+                    <span id="lightbox-counter"></span>
+                </div>
+            </div>
+            <button class="lightbox-nav lightbox-next" onclick="navigateLightbox(1, event)" aria-label="Image suivante">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18l6-6-6-6"/>
+                </svg>
+            </button>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', lightboxHTML);
+    
+    // Keyboard navigation
+    document.addEventListener('keydown', handleLightboxKeyboard);
+}
+
+function openLightbox(index) {
+    currentImageIndex = index;
+    const lightbox = document.getElementById('lightbox');
+    if (!lightbox) return;
+    
+    updateLightboxImage();
+    lightbox.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox(event) {
+    if (event) event.stopPropagation();
+    const lightbox = document.getElementById('lightbox');
+    if (lightbox) {
+        lightbox.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+function navigateLightbox(direction, event) {
+    if (event) event.stopPropagation();
+    currentImageIndex += direction;
+    
+    if (currentImageIndex < 0) currentImageIndex = galleryImages.length - 1;
+    if (currentImageIndex >= galleryImages.length) currentImageIndex = 0;
+    
+    updateLightboxImage();
+}
+
+function updateLightboxImage() {
+    const img = galleryImages[currentImageIndex];
+    const lightboxImg = document.getElementById('lightbox-image');
+    const lightboxTitle = document.getElementById('lightbox-title');
+    const lightboxCounter = document.getElementById('lightbox-counter');
+    
+    if (lightboxImg) {
+        lightboxImg.src = getImageUrl(img);
+        lightboxImg.alt = getImageAlt(img, 'Image ' + (currentImageIndex + 1));
+    }
+    if (lightboxTitle) {
+        lightboxTitle.textContent = getImageAlt(img, '');
+    }
+    if (lightboxCounter) {
+        lightboxCounter.textContent = `${currentImageIndex + 1} / ${galleryImages.length}`;
+    }
+    
+    // Masquer les boutons nav si une seule image
+    const prevBtn = document.querySelector('.lightbox-prev');
+    const nextBtn = document.querySelector('.lightbox-next');
+    if (prevBtn && nextBtn) {
+        const display = galleryImages.length > 1 ? 'flex' : 'none';
+        prevBtn.style.display = display;
+        nextBtn.style.display = display;
+    }
+}
+
+function handleLightboxKeyboard(e) {
+    const lightbox = document.getElementById('lightbox');
+    if (!lightbox || !lightbox.classList.contains('active')) return;
+    
+    switch(e.key) {
+        case 'Escape':
+            closeLightbox();
+            break;
+        case 'ArrowLeft':
+            navigateLightbox(-1);
+            break;
+        case 'ArrowRight':
+            navigateLightbox(1);
+            break;
     }
 }
 
