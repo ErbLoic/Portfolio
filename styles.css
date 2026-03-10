@@ -1093,6 +1093,52 @@ h1, h2, h3 {
 }
 
 /* ========================================
+   Cartes cliquables
+   ======================================== */
+.project-card-link,
+.realisation-card-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+}
+
+.project-card,
+.realisation-card {
+    position: relative;
+    cursor: pointer;
+    background: var(--white);
+}
+
+.card-arrow {
+    position: absolute;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-light), var(--primary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--white);
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: all 0.3s ease;
+}
+
+.project-card:hover .card-arrow,
+.realisation-card:hover .card-arrow {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.project-card:hover,
+.realisation-card:hover {
+    border-color: var(--primary-light);
+    box-shadow: var(--shadow-medium);
+}
+
+/* ========================================
    Contact Section
    ======================================== */
 #contact {

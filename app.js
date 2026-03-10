@@ -236,14 +236,26 @@ async function loadAllData(useCache = true) {
     }
 }
 
-// Rafraîchir les données en arrière-plan
+// Rafraîchir les données en arrière-plan ET mettre à jour l'UI en temps réel
 async function refreshDataInBackground() {
     try {
         console.log('Rafraîchissement des données en arrière-plan...');
         const freshData = await fetchAPI('/all');
         if (freshData) {
+            // Vérifier si les données ont changé avant de re-render
+            const oldCache = localStorage.getItem(CACHE_KEY);
+            const oldData = oldCache ? JSON.parse(oldCache).data : null;
+            
+            // Mettre à jour le cache
             setCachedData(freshData);
-            console.log('Cache mis à jour avec les données fraîches');
+            
+            // Mettre à jour l'UI en temps réel si les données ont changé
+            if (JSON.stringify(freshData) !== JSON.stringify(oldData)) {
+                console.log('Nouvelles données détectées, mise à jour de l\'interface...');
+                renderAllSections(freshData);
+            } else {
+                console.log('Données identiques, pas de mise à jour nécessaire');
+            }
         }
     } catch (error) {
         console.warn('Rafraîchissement en arrière-plan échoué:', error);
@@ -394,16 +406,23 @@ function renderRealisations(data) {
                 </div>
                 <div class="realisations-grid">
                     ${companyRealisations.map(real => `
-                        <div class="realisation-card">
-                            <span class="realisation-type">${real.type === 'stage' ? 'Stage' : 'Projet'}</span>
-                            <h4 class="realisation-title">${real.title}</h4>
-                            <p class="realisation-description">${real.description || ''}</p>
-                            ${real.tags && real.tags.length ? `
-                                <div class="realisation-tags">
-                                    ${real.tags.map(tag => `<span class="tag">${tag.tag}</span>`).join('')}
-                                </div>
-                            ` : ''}
-                        </div>
+                        <a href="realisation/page.html?id=${real.id}" class="realisation-card-link">
+                            <div class="realisation-card">
+                                <span class="realisation-type">${real.type === 'stage' ? 'Stage' : 'Projet'}</span>
+                                <h4 class="realisation-title">${real.title}</h4>
+                                <p class="realisation-description">${real.description || ''}</p>
+                                ${real.tags && real.tags.length ? `
+                                    <div class="realisation-tags">
+                                        ${real.tags.map(tag => `<span class="tag">${tag.tag}</span>`).join('')}
+                                    </div>
+                                ` : ''}
+                                <span class="card-arrow">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                                    </svg>
+                                </span>
+                            </div>
+                        </a>
                     `).join('')}
                 </div>
             </div>
@@ -430,28 +449,35 @@ function renderProjects(projects) {
         const color = typeColors[projet.type] || '#6B73FF';
 
         const projectHtml = `
-            <div class="project-card">
-                <div class="project-image" style="background: linear-gradient(135deg, ${color}15, ${color}05);">
-                    <div class="project-decoration-1" style="background: ${color};"></div>
-                    <div class="project-decoration-2" style="background: ${color};"></div>
-                    <div class="project-icon" style="background: ${color}; box-shadow: 0 8px 24px ${color}40;">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                            <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3M3 16v3a2 2 0 002 2h3m8 0h3a2 2 0 002-2v-3" stroke="white" stroke-width="2" stroke-linecap="round" />
-                        </svg>
-                    </div>
-                    <span class="project-year" style="color: ${color};">${projet.year}</span>
-                </div>
-                <div class="project-content">
-                    <span class="project-type" style="color: ${color}; background: ${color}12; border: 1px solid ${color}25;">${projet.type}</span>
-                    <h3 class="project-title">${projet.title}</h3>
-                    <p class="project-description">${projet.description || ''}</p>
-                    ${projet.tags && projet.tags.length ? `
-                        <div class="project-tags">
-                            ${projet.tags.map(tag => `<span class="tag">${tag.tag}</span>`).join('')}
+            <a href="projet/page.html?id=${projet.id}" class="project-card-link">
+                <div class="project-card">
+                    <div class="project-image" style="background: linear-gradient(135deg, ${color}15, ${color}05);">
+                        <div class="project-decoration-1" style="background: ${color};"></div>
+                        <div class="project-decoration-2" style="background: ${color};"></div>
+                        <div class="project-icon" style="background: ${color}; box-shadow: 0 8px 24px ${color}40;">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                                <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3M3 16v3a2 2 0 002 2h3m8 0h3a2 2 0 002-2v-3" stroke="white" stroke-width="2" stroke-linecap="round" />
+                            </svg>
                         </div>
-                    ` : ''}
+                        <span class="project-year" style="color: ${color};">${projet.year}</span>
+                    </div>
+                    <div class="project-content">
+                        <span class="project-type" style="color: ${color}; background: ${color}12; border: 1px solid ${color}25;">${projet.type}</span>
+                        <h3 class="project-title">${projet.title}</h3>
+                        <p class="project-description">${projet.description || ''}</p>
+                        ${projet.tags && projet.tags.length ? `
+                            <div class="project-tags">
+                                ${projet.tags.map(tag => `<span class="tag">${tag.tag}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                    <span class="card-arrow">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </span>
                 </div>
-            </div>
+            </a>
         `;
 
         container.innerHTML += projectHtml;
