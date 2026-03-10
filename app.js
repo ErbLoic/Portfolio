@@ -1,23 +1,171 @@
 // Configuration de l'API
-const API_BASE_URL = 'https://portfolio-mlb3.onrender.com/'; // À modifier selon l'URL de l'API Laravel
+const API_BASE_URL = 'https://portfolio-mlb3.onrender.com/api'; // URL de l'API Laravel
+
+// Clé de cache localStorage
+const CACHE_KEY = 'portfolio_data_cache';
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 heures en millisecondes
 
 // Cache des données
 let portfolioData = null;
 
 // ========================================
+// Système de cache localStorage
+// ========================================
+
+function getCachedData() {
+    try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (!cached) return null;
+        
+        const { data, timestamp } = JSON.parse(cached);
+        const isExpired = Date.now() - timestamp > CACHE_DURATION;
+        
+        if (isExpired) {
+            localStorage.removeItem(CACHE_KEY);
+            return null;
+        }
+        
+        console.log('Données chargées depuis le cache');
+        return data;
+    } catch (error) {
+        console.warn('Erreur lors de la lecture du cache:', error);
+        return null;
+    }
+}
+
+function setCachedData(data) {
+    try {
+        const cacheEntry = {
+            data: data,
+            timestamp: Date.now()
+        };
+        localStorage.setItem(CACHE_KEY, JSON.stringify(cacheEntry));
+        console.log('Données mises en cache');
+    } catch (error) {
+        console.warn('Erreur lors de la mise en cache:', error);
+    }
+}
+
+function clearCache() {
+    localStorage.removeItem(CACHE_KEY);
+    console.log('Cache vidé');
+}
+
+// ========================================
+// Système de chargement amélioré
+// ========================================
+
+const loadingMessages = [
+    { status: "Connexion au serveur...", tip: "Le serveur se réveille, cela peut prendre quelques secondes" },
+    { status: "Réveil du serveur...", tip: "Les serveurs gratuits s'endorment après 15 min d'inactivité" },
+    { status: "Établissement de la connexion...", tip: "Première visite ? Le chargement initial est plus long" },
+    { status: "Chargement des données...", tip: "Merci de patienter, c'est bientôt prêt !" },
+    { status: "Presque terminé...", tip: "Les prochaines visites seront plus rapides" },
+    { status: "Finalisation...", tip: "Le serveur est maintenant actif" }
+];
+
+let loadingInterval = null;
+let progressInterval = null;
+let currentMessageIndex = 0;
+let currentProgress = 0;
+
+function updateLoadingMessage() {
+    const statusEl = document.getElementById('loader-status');
+    const tipEl = document.getElementById('loader-tip');
+    
+    if (statusEl && tipEl && currentMessageIndex < loadingMessages.length) {
+        const msg = loadingMessages[currentMessageIndex];
+        statusEl.style.animation = 'none';
+        tipEl.style.animation = 'none';
+        
+        // Force reflow
+        void statusEl.offsetHeight;
+        void tipEl.offsetHeight;
+        
+        statusEl.textContent = msg.status;
+        tipEl.textContent = msg.tip;
+        
+        statusEl.style.animation = 'fade-text 0.5s ease-out';
+        tipEl.style.animation = 'fade-text 0.5s ease-out';
+        
+        currentMessageIndex++;
+    }
+}
+
+function updateProgress(targetProgress) {
+    const progressBar = document.getElementById('loader-progress-bar');
+    if (progressBar) {
+        currentProgress = Math.min(targetProgress, 95); // Ne jamais dépasser 95% avant la fin
+        progressBar.style.width = `${currentProgress}%`;
+    }
+}
+
+function startLoadingAnimation() {
+    currentMessageIndex = 0;
+    currentProgress = 0;
+    
+    // Mettre à jour les messages toutes les 4 secondes
+    updateLoadingMessage();
+    loadingInterval = setInterval(() => {
+        updateLoadingMessage();
+    }, 4000);
+    
+    // Simuler une progression réaliste
+    progressInterval = setInterval(() => {
+        // Progression plus lente au début (cold start), plus rapide ensuite
+        const increment = currentProgress < 30 ? 2 : currentProgress < 60 ? 4 : 3;
+        updateProgress(currentProgress + increment);
+    }, 500);
+}
+
+function stopLoadingAnimation() {
+    clearInterval(loadingInterval);
+    clearInterval(progressInterval);
+    updateProgress(100);
+}
+
+// ========================================
 // Fonctions utilitaires
 // ========================================
 
-async function fetchAPI(endpoint) {
+async function fetchAPI(endpoint, timeout = 60000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
     try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`);
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         return await response.json();
     } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+            throw new Error('Timeout: le serveur met trop de temps à répondre');
+        }
         console.error(`Erreur lors de la récupération de ${endpoint}:`, error);
         throw error;
+    }
+}
+
+// Ping initial pour réveiller le serveur
+async function warmupServer() {
+    try {
+        const startTime = Date.now();
+        await fetch(`${API_BASE_URL}/ping`, { 
+            method: 'GET',
+            mode: 'cors'
+        });
+        const duration = Date.now() - startTime;
+        console.log(`Serveur réveillé en ${duration}ms`);
+        return true;
+    } catch (error) {
+        console.warn('Ping échoué, tentative de chargement direct...', error);
+        return false;
     }
 }
 
@@ -50,14 +198,55 @@ function startPingInterval() {
 // Chargement des données
 // ========================================
 
-async function loadAllData() {
+async function loadAllData(useCache = true) {
+    // Essayer de charger depuis le cache d'abord
+    if (useCache) {
+        const cachedData = getCachedData();
+        if (cachedData) {
+            portfolioData = cachedData;
+            return cachedData;
+        }
+    }
+    
+    // Sinon charger depuis l'API
     try {
         portfolioData = await fetchAPI('/all');
+        
+        // Mettre en cache les nouvelles données
+        if (portfolioData) {
+            setCachedData(portfolioData);
+        }
+        
         return portfolioData;
     } catch (error) {
         console.error('Erreur lors du chargement des données:', error);
-        // En cas d'erreur, on peut afficher un message ou utiliser des données par défaut
+        
+        // En cas d'erreur, essayer de retourner les données du cache même expirées
+        const fallbackCache = localStorage.getItem(CACHE_KEY);
+        if (fallbackCache) {
+            try {
+                const { data } = JSON.parse(fallbackCache);
+                console.log('Utilisation du cache de secours');
+                return data;
+            } catch (e) {
+                return null;
+            }
+        }
         return null;
+    }
+}
+
+// Rafraîchir les données en arrière-plan
+async function refreshDataInBackground() {
+    try {
+        console.log('Rafraîchissement des données en arrière-plan...');
+        const freshData = await fetchAPI('/all');
+        if (freshData) {
+            setCachedData(freshData);
+            console.log('Cache mis à jour avec les données fraîches');
+        }
+    } catch (error) {
+        console.warn('Rafraîchissement en arrière-plan échoué:', error);
     }
 }
 
@@ -197,7 +386,7 @@ function renderRealisations(data) {
         const companyHtml = `
             <div class="company-section">
                 <div class="company-header">
-                    ${company.photo_url ? `<img src="${API_BASE_URL.replace('/api', '')}/storage/${company.photo_url}" alt="${company.name}" class="company-logo" />` : ''}
+                    ${company.photo_url ? `<img src="${company.photo_url}" alt="${company.name}" class="company-logo" />` : ''}
                     <div>
                         <h4 class="company-name">${company.name}</h4>
                         <p class="company-sector">${company.sector || ''}</p>
@@ -304,34 +493,80 @@ function initNavbar() {
 // Initialisation
 // ========================================
 
-async function init() {
-    // Initialiser la navigation
-    initNavbar();
+function renderAllSections(data) {
+    if (!data) return false;
+    
+    renderPortfolio(data);
+    renderCompetences(data.competences);
+    renderStages(data.stages);
+    renderRealisations(data);
+    renderProjects(data.projects);
+    
+    return true;
+}
 
-    // Démarrer le ping interval
-    startPingInterval();
-
-    try {
-        // Charger toutes les données
-        const data = await loadAllData();
-
-        if (data) {
-            // Rendre les différentes sections
-            renderPortfolio(data);
-            renderCompetences(data.competences);
-            renderStages(data.stages);
-            renderRealisations(data);
-            renderProjects(data.projects);
-        }
-    } catch (error) {
-        console.error('Erreur lors de l\'initialisation:', error);
-    } finally {
-        // Masquer l'overlay de chargement
+function hideLoadingOverlay() {
+    stopLoadingAnimation();
+    setTimeout(() => {
         const loadingOverlay = document.getElementById('loading-overlay');
         loadingOverlay.classList.add('fade-out');
         setTimeout(() => {
             loadingOverlay.style.display = 'none';
-        }, 300);
+        }, 500);
+    }, 300);
+}
+
+async function init() {
+    // Initialiser la navigation
+    initNavbar();
+
+    // Vérifier si on a des données en cache
+    const cachedData = getCachedData();
+    
+    if (cachedData) {
+        // Affichage instantané depuis le cache !
+        console.log('Affichage instantané depuis le cache');
+        document.getElementById('loader-status').textContent = "Chargement instantané...";
+        document.getElementById('loader-tip').textContent = "Données locales disponibles";
+        updateProgress(100);
+        
+        renderAllSections(cachedData);
+        hideLoadingOverlay();
+        
+        // Rafraîchir les données en arrière-plan pour la prochaine visite
+        startPingInterval();
+        refreshDataInBackground();
+        return;
+    }
+
+    // Pas de cache : chargement complet avec animation
+    startLoadingAnimation();
+    startPingInterval();
+
+    try {
+        // D'abord réveiller le serveur avec un ping
+        await warmupServer();
+        
+        // Mettre à jour le message
+        document.getElementById('loader-status').textContent = "Chargement des données...";
+        updateProgress(50);
+        
+        // Charger toutes les données (sans cache car on sait qu'il n'y en a pas)
+        const data = await loadAllData(false);
+
+        if (data) {
+            updateProgress(80);
+            renderAllSections(data);
+            updateProgress(100);
+        } else {
+            throw new Error('Aucune donnée reçue');
+        }
+    } catch (error) {
+        console.error('Erreur lors de l\'initialisation:', error);
+        document.getElementById('loader-status').textContent = "Oops, une erreur s'est produite";
+        document.getElementById('loader-tip').textContent = "Veuillez rafraîchir la page pour réessayer";
+    } finally {
+        hideLoadingOverlay();
     }
 }
 
