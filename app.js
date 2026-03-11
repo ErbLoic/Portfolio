@@ -694,14 +694,22 @@ function initNavbar() {
 // Initialisation
 // ========================================
 
-function renderAllSections(data) {
+async function renderAllSections(data) {
     if (!data) return false;
     
     renderPortfolio(data);
-    renderMessages(data.messages);
     renderStages(data.stages);
     renderRealisations(data);
     renderProjects(data.projects);
+    
+    // Charger les messages séparément (endpoint différent)
+    try {
+        const response = await fetchAPI('/messages');
+        const messages = response?.data || response;
+        renderMessages(messages);
+    } catch (error) {
+        console.warn('Erreur lors du chargement des messages:', error);
+    }
     
     return true;
 }
