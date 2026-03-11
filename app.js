@@ -359,13 +359,18 @@ function renderCompetences(competences) {
 }
 
 function renderStages(stages) {
-    if (!stages || !stages.length) return;
+    if (!stages || !stages.length) {
+        document.querySelector('.stages-section')?.classList.add('hidden');
+        return;
+    }
 
+    document.querySelector('.stages-section')?.classList.remove('hidden');
     const container = document.getElementById('stages-timeline');
     container.innerHTML = '';
 
     stages.forEach((stage, index) => {
         const isRight = index % 2 === 1;
+        const hasCompetences = stage.competences && stage.competences.length > 0;
 
         const stageHtml = `
             <div class="timeline-item ${isRight ? 'right' : ''}">
@@ -380,18 +385,61 @@ function renderStages(stages) {
                         <span class="stage-duration">${stage.duration || ''}</span>
                     </div>
                     <p class="stage-description">${stage.description || ''}</p>
-                    <div class="stage-competences">
-                        <span class="competences-label">COMPÉTENCES:</span>
-                        ${(stage.competences || []).map(comp => `
-                            <span class="competence-tag">${comp.code}</span>
-                        `).join('')}
-                    </div>
+                    ${hasCompetences ? `
+                        <div class="stage-competences">
+                            <span class="competences-label">COMPÉTENCES:</span>
+                            ${stage.competences.map(comp => `
+                                <span class="competence-tag">${comp.code}</span>
+                            `).join('')}
+                        </div>
+                    ` : ''}
                 </div>
                 ${isRight ? '' : '<div></div>'}
             </div>
         `;
 
         container.innerHTML += stageHtml;
+    });
+}
+
+function renderFormations(formations) {
+    if (!formations || !formations.length) {
+        document.querySelector('.formations-section')?.classList.add('hidden');
+        return;
+    }
+
+    document.querySelector('.formations-section')?.classList.remove('hidden');
+    const container = document.getElementById('formations-timeline');
+    container.innerHTML = '';
+
+    formations.forEach((formation, index) => {
+        const isRight = index % 2 === 1;
+        const period = formation.period || `${formatDate(formation.start_date)} — ${formation.is_current ? 'En cours' : formatDate(formation.end_date)}`;
+
+        const formationHtml = `
+            <div class="timeline-item ${isRight ? 'right' : ''}">
+                <div class="timeline-dot"></div>
+                <div class="stage-card formation-card" ${isRight ? 'style="grid-column: 2;"' : ''}>
+                    <div class="stage-header">
+                        <div>
+                            <p class="stage-dates">${period}</p>
+                            <h4 class="stage-company">${formation.title || 'Formation'}</h4>
+                            <p class="stage-meta">${formation.school || ''} ${formation.location ? '— ' + formation.location : ''}</p>
+                        </div>
+                        ${formation.degree_type ? `<span class="stage-duration">${formation.degree_type}</span>` : ''}
+                    </div>
+                    ${formation.description ? `<p class="stage-description">${formation.description}</p>` : ''}
+                    ${formation.logo_url ? `
+                        <div class="formation-logo">
+                            <img src="${formation.logo_url}" alt="${formation.school}" />
+                        </div>
+                    ` : ''}
+                </div>
+                ${isRight ? '' : '<div></div>'}
+            </div>
+        `;
+
+        container.innerHTML += formationHtml;
     });
 }
 
@@ -701,6 +749,19 @@ async function renderAllSections(data) {
     renderStages(data.stages);
     renderRealisations(data);
     renderProjects(data.projects);
+    
+    // Charger les formations (peut être dans /all ou séparément)
+    if (data.formations) {
+        renderFormations(data.formations);
+    } else {
+        try {
+            const response = await fetchAPI('/formations');
+            const formations = response?.data || response;
+            renderFormations(formations);
+        } catch (error) {
+            console.warn('Erreur lors du chargement des formations:', error);
+        }
+    }
     
     // Charger les messages séparément (endpoint différent)
     try {
