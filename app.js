@@ -8,6 +8,18 @@ const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 heures en millisecondes
 // Cache des données
 let portfolioData = null;
 
+// Pagination state
+let projectsPage = 0;
+let realisationsPage = 0;
+let allProjects = [];
+let allRealisations = [];
+const ITEMS_PER_PAGE = 2;
+
+// Messages carousel state
+let messagesIndex = 0;
+let allMessages = [];
+let messagesAutoSlide = null;
+
 // ========================================
 // Système de cache localStorage
 // ========================================
@@ -390,51 +402,140 @@ function renderRealisations(data) {
     container.innerHTML = '';
 
     const realisationsByCompany = data.realisationsByCompany || {};
-
+    
+    // Collecte toutes les réalisations dans un tableau aplati
+    allRealisations = [];
     data.companies.forEach(company => {
         const companyRealisations = realisationsByCompany[company.id];
-        if (!companyRealisations || !companyRealisations.length) return;
-
-        const companyHtml = `
-            <div class="company-section">
-                <div class="company-header">
-                    ${company.photo_url ? `<img src="${company.photo_url}" alt="${company.name}" class="company-logo" />` : ''}
-                    <div>
-                        <h4 class="company-name">${company.name}</h4>
-                        <p class="company-sector">${company.sector || ''}</p>
-                    </div>
-                </div>
-                <div class="realisations-grid">
-                    ${companyRealisations.map(real => `
-                        <a href="realisation/page.html?id=${real.id}" class="realisation-card-link">
-                            <div class="realisation-card">
-                                <span class="realisation-type">${real.type === 'stage' ? 'Stage' : 'Projet'}</span>
-                                <h4 class="realisation-title">${real.title}</h4>
-                                <p class="realisation-description">${real.description || ''}</p>
-                                ${real.tags && real.tags.length ? `
-                                    <div class="realisation-tags">
-                                        ${real.tags.map(tag => `<span class="tag">${tag.tag}</span>`).join('')}
-                                    </div>
-                                ` : ''}
-                                <span class="card-arrow">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                                    </svg>
-                                </span>
-                            </div>
-                        </a>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-
-        container.innerHTML += companyHtml;
+        if (companyRealisations && companyRealisations.length) {
+            companyRealisations.forEach(real => {
+                allRealisations.push({ ...real, company });
+            });
+        }
     });
+
+    // Reset la page et affiche
+    realisationsPage = 0;
+    renderRealisationsPage();
+    initRealisationsPagination();
+}
+
+function renderRealisationsPage() {
+    const container = document.getElementById('realisations-by-company');
+    container.innerHTML = '';
+    
+    const start = realisationsPage * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    const pageItems = allRealisations.slice(start, end);
+    
+    pageItems.forEach(real => {
+        const realHtml = `
+            <a href="realisation/page.html?id=${real.id}" class="realisation-card-link">
+                <div class="realisation-card">
+                    <div class="realisation-card-header">
+                        ${real.company?.photo_url ? `<img src="${real.company.photo_url}" alt="${real.company.name}" class="realisation-company-logo" />` : ''}
+                        <span class="realisation-company-name">${real.company?.name || ''}</span>
+                    </div>
+                    <span class="realisation-type">${real.type === 'stage' ? 'Stage' : 'Projet'}</span>
+                    <h4 class="realisation-title">${real.title}</h4>
+                    <p class="realisation-description">${real.description || ''}</p>
+                    ${real.tags && real.tags.length ? `
+                        <div class="realisation-tags">
+                            ${real.tags.map(tag => `<span class="tag">${tag.tag}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                    <span class="card-arrow">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </span>
+                </div>
+            </a>
+        `;
+        container.innerHTML += realHtml;
+    });
+    
+    updateRealisationsDots();
+    updateRealisationsArrows();
+}
+
+function initRealisationsPagination() {
+    const prevBtn = document.getElementById('realisations-prev');
+    const nextBtn = document.getElementById('realisations-next');
+    const dotsContainer = document.getElementById('realisations-dots');
+    
+    const totalPages = Math.ceil(allRealisations.length / ITEMS_PER_PAGE);
+    
+    // Créer les dots
+    dotsContainer.innerHTML = '';
+    for (let i = 0; i < totalPages; i++) {
+        const dot = document.createElement('button');
+        dot.className = `pagination-dot ${i === 0 ? 'active' : ''}`;
+        dot.setAttribute('aria-label', `Page ${i + 1}`);
+        dot.addEventListener('click', () => {
+            realisationsPage = i;
+            renderRealisationsPage();
+        });
+        dotsContainer.appendChild(dot);
+    }
+    
+    // Event listeners pour les flèches
+    prevBtn.onclick = () => {
+        if (realisationsPage > 0) {
+            realisationsPage--;
+            renderRealisationsPage();
+        }
+    };
+    
+    nextBtn.onclick = () => {
+        if (realisationsPage < totalPages - 1) {
+            realisationsPage++;
+            renderRealisationsPage();
+        }
+    };
+    
+    updateRealisationsArrows();
+}
+
+function updateRealisationsDots() {
+    const dots = document.querySelectorAll('#realisations-dots .pagination-dot');
+    dots.forEach((dot, i) => {
+        dot.classList.toggle('active', i === realisationsPage);
+    });
+}
+
+function updateRealisationsArrows() {
+    const prevBtn = document.getElementById('realisations-prev');
+    const nextBtn = document.getElementById('realisations-next');
+    const totalPages = Math.ceil(allRealisations.length / ITEMS_PER_PAGE);
+    
+    prevBtn.disabled = realisationsPage === 0;
+    nextBtn.disabled = realisationsPage >= totalPages - 1;
+    
+    // Masquer si une seule page
+    const container = document.querySelector('#realisations-by-company').closest('.paginated-container');
+    const dotsContainer = document.getElementById('realisations-dots');
+    if (totalPages <= 1) {
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+        dotsContainer.style.display = 'none';
+    } else {
+        prevBtn.style.display = '';
+        nextBtn.style.display = '';
+        dotsContainer.style.display = '';
+    }
 }
 
 function renderProjects(projects) {
     if (!projects || !projects.length) return;
 
+    allProjects = projects;
+    projectsPage = 0;
+    renderProjectsPage();
+    initProjectsPagination();
+}
+
+function renderProjectsPage() {
     const container = document.getElementById('projects-grid');
     container.innerHTML = '';
 
@@ -445,7 +546,11 @@ function renderProjects(projects) {
         'Base de données': '#8b92ff',
     };
 
-    projects.forEach(projet => {
+    const start = projectsPage * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    const pageItems = allProjects.slice(start, end);
+
+    pageItems.forEach(projet => {
         const color = typeColors[projet.type] || '#6B73FF';
 
         const projectHtml = `
@@ -482,6 +587,76 @@ function renderProjects(projects) {
 
         container.innerHTML += projectHtml;
     });
+    
+    updateProjectsDots();
+    updateProjectsArrows();
+}
+
+function initProjectsPagination() {
+    const prevBtn = document.getElementById('projects-prev');
+    const nextBtn = document.getElementById('projects-next');
+    const dotsContainer = document.getElementById('projects-dots');
+    
+    const totalPages = Math.ceil(allProjects.length / ITEMS_PER_PAGE);
+    
+    // Créer les dots
+    dotsContainer.innerHTML = '';
+    for (let i = 0; i < totalPages; i++) {
+        const dot = document.createElement('button');
+        dot.className = `pagination-dot ${i === 0 ? 'active' : ''}`;
+        dot.setAttribute('aria-label', `Page ${i + 1}`);
+        dot.addEventListener('click', () => {
+            projectsPage = i;
+            renderProjectsPage();
+        });
+        dotsContainer.appendChild(dot);
+    }
+    
+    // Event listeners pour les flèches
+    prevBtn.onclick = () => {
+        if (projectsPage > 0) {
+            projectsPage--;
+            renderProjectsPage();
+        }
+    };
+    
+    nextBtn.onclick = () => {
+        const totalPages = Math.ceil(allProjects.length / ITEMS_PER_PAGE);
+        if (projectsPage < totalPages - 1) {
+            projectsPage++;
+            renderProjectsPage();
+        }
+    };
+    
+    updateProjectsArrows();
+}
+
+function updateProjectsDots() {
+    const dots = document.querySelectorAll('#projects-dots .pagination-dot');
+    dots.forEach((dot, i) => {
+        dot.classList.toggle('active', i === projectsPage);
+    });
+}
+
+function updateProjectsArrows() {
+    const prevBtn = document.getElementById('projects-prev');
+    const nextBtn = document.getElementById('projects-next');
+    const totalPages = Math.ceil(allProjects.length / ITEMS_PER_PAGE);
+    
+    prevBtn.disabled = projectsPage === 0;
+    nextBtn.disabled = projectsPage >= totalPages - 1;
+    
+    // Masquer si une seule page
+    const dotsContainer = document.getElementById('projects-dots');
+    if (totalPages <= 1) {
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+        dotsContainer.style.display = 'none';
+    } else {
+        prevBtn.style.display = '';
+        nextBtn.style.display = '';
+        dotsContainer.style.display = '';
+    }
 }
 
 // ========================================
@@ -523,11 +698,160 @@ function renderAllSections(data) {
     if (!data) return false;
     
     renderPortfolio(data);
+    renderMessages(data.messages);
     renderStages(data.stages);
     renderRealisations(data);
     renderProjects(data.projects);
     
     return true;
+}
+
+// ========================================
+// Messages Carousel
+// ========================================
+
+function renderMessages(messages) {
+    const section = document.getElementById('messages-section');
+    const carousel = document.getElementById('messages-carousel');
+    const nav = document.getElementById('messages-nav');
+    
+    if (!messages || !messages.length) {
+        section.classList.add('hidden');
+        return;
+    }
+    
+    // Filtrer les messages actifs (l'API peut déjà le faire, mais double vérification)
+    allMessages = messages.filter(msg => msg.is_active);
+    
+    if (!allMessages.length) {
+        section.classList.add('hidden');
+        return;
+    }
+    
+    section.classList.remove('hidden');
+    carousel.innerHTML = '';
+    
+    // Icônes disponibles
+    const icons = {
+        'briefcase': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>',
+        'search': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>',
+        'star': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+        'info': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+        'alert': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
+        'calendar': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+        'default': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>'
+    };
+    
+    // Types avec couleurs
+    const typeClasses = {
+        'urgent': 'message-urgent',
+        'warning': 'message-warning',
+        'success': 'message-success',
+        'info': 'message-info'
+    };
+    
+    allMessages.forEach((msg, index) => {
+        const typeClass = typeClasses[msg.type] || 'message-info';
+        const icon = icons[msg.icon] || icons['default'];
+        
+        const messageHtml = `
+            <div class="message-slide ${index === 0 ? 'active' : ''}" data-index="${index}">
+                <div class="message-card ${typeClass}">
+                    <div class="message-icon">${icon}</div>
+                    <div class="message-content">
+                        ${msg.title ? `<h4 class="message-title">${msg.title}</h4>` : ''}
+                        <p class="message-text">${msg.message}</p>
+                        ${msg.link_url ? `
+                            <a href="${msg.link_url}" class="message-link" target="_blank" rel="noopener">
+                                ${msg.link_text || 'En savoir plus'}
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                                </svg>
+                            </a>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+        carousel.innerHTML += messageHtml;
+    });
+    
+    // Navigation
+    if (allMessages.length > 1) {
+        nav.classList.remove('hidden');
+        initMessagesCarousel();
+    } else {
+        nav.classList.add('hidden');
+    }
+}
+
+function initMessagesCarousel() {
+    const prevBtn = document.getElementById('messages-prev');
+    const nextBtn = document.getElementById('messages-next');
+    const dotsContainer = document.getElementById('messages-dots');
+    
+    // Créer les dots
+    dotsContainer.innerHTML = '';
+    allMessages.forEach((_, index) => {
+        const dot = document.createElement('button');
+        dot.className = `message-dot ${index === 0 ? 'active' : ''}`;
+        dot.setAttribute('aria-label', `Message ${index + 1}`);
+        dot.addEventListener('click', () => goToMessage(index));
+        dotsContainer.appendChild(dot);
+    });
+    
+    // Event listeners
+    prevBtn.onclick = () => navigateMessages(-1);
+    nextBtn.onclick = () => navigateMessages(1);
+    
+    // Auto-slide toutes les 5 secondes
+    startMessagesAutoSlide();
+    
+    // Pause on hover
+    const carousel = document.getElementById('messages-carousel');
+    carousel.addEventListener('mouseenter', stopMessagesAutoSlide);
+    carousel.addEventListener('mouseleave', startMessagesAutoSlide);
+}
+
+function navigateMessages(direction) {
+    messagesIndex += direction;
+    
+    if (messagesIndex < 0) messagesIndex = allMessages.length - 1;
+    if (messagesIndex >= allMessages.length) messagesIndex = 0;
+    
+    updateMessagesSlide();
+}
+
+function goToMessage(index) {
+    messagesIndex = index;
+    updateMessagesSlide();
+}
+
+function updateMessagesSlide() {
+    const slides = document.querySelectorAll('.message-slide');
+    const dots = document.querySelectorAll('.message-dot');
+    
+    slides.forEach((slide, i) => {
+        slide.classList.toggle('active', i === messagesIndex);
+    });
+    
+    dots.forEach((dot, i) => {
+        dot.classList.toggle('active', i === messagesIndex);
+    });
+}
+
+function startMessagesAutoSlide() {
+    stopMessagesAutoSlide();
+    if (allMessages.length > 1) {
+        messagesAutoSlide = setInterval(() => navigateMessages(1), 5000);
+    }
+}
+
+function stopMessagesAutoSlide() {
+    if (messagesAutoSlide) {
+        clearInterval(messagesAutoSlide);
+        messagesAutoSlide = null;
+    }
 }
 
 function hideLoadingOverlay() {

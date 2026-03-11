@@ -111,6 +111,50 @@
       </div>
     </section>
 
+    <!-- Messages Importants Section -->
+    <section id="messages-section" class="messages-section hidden">
+      <div class="messages-container">
+        <div class="messages-carousel" id="messages-carousel">
+          <!-- Messages will be loaded here -->
+        </div>
+        <div class="messages-nav" id="messages-nav">
+          <button
+            class="messages-nav-btn prev"
+            id="messages-prev"
+            aria-label="Message précédent"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+          <div class="messages-dots" id="messages-dots"></div>
+          <button
+            class="messages-nav-btn next"
+            id="messages-next"
+            aria-label="Message suivant"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
     <!-- Profil Section -->
     <section id="profil">
       <div class="section-container">
@@ -187,7 +231,42 @@
             Réalisations par
             <span class="italic accent">entreprise</span>
           </h3>
-          <div id="realisations-by-company"></div>
+          <div class="paginated-container">
+            <button
+              class="pagination-arrow prev"
+              id="realisations-prev"
+              aria-label="Précédent"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+            <div id="realisations-by-company" class="paginated-grid"></div>
+            <button
+              class="pagination-arrow next"
+              id="realisations-next"
+              aria-label="Suivant"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </button>
+          </div>
+          <div class="pagination-dots" id="realisations-dots"></div>
         </div>
       </div>
     </section>
@@ -208,7 +287,42 @@
             les différents blocs de compétences du BTS SIO.
           </p>
         </div>
-        <div id="projects-grid" class="projects-grid"></div>
+        <div class="paginated-container">
+          <button
+            class="pagination-arrow prev"
+            id="projects-prev"
+            aria-label="Précédent"
+          >
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+          <div id="projects-grid" class="projects-grid paginated-grid"></div>
+          <button
+            class="pagination-arrow next"
+            id="projects-next"
+            aria-label="Suivant"
+          >
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        </div>
+        <div class="pagination-dots" id="projects-dots"></div>
       </div>
     </section>
 

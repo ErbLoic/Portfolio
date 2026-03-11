@@ -1586,3 +1586,323 @@ footer {
     0% { transform: translateX(-100%); }
     100% { transform: translateX(100%); }
 }
+
+/* ========================================
+   Messages Carousel Section
+   ======================================== */
+#messages-section {
+    padding: 2rem 2rem 0;
+    background: var(--bg-light);
+}
+
+.messages-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.messages-carousel {
+    position: relative;
+    min-height: 100px;
+}
+
+.message-slide {
+    display: none;
+    animation: fadeInSlide 0.4s ease-out;
+}
+
+.message-slide.active {
+    display: block;
+}
+
+@keyframes fadeInSlide {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.message-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    border-radius: 1rem;
+    border-left: 4px solid;
+    background: var(--white);
+    box-shadow: var(--shadow-soft);
+}
+
+.message-card.message-info {
+    border-left-color: var(--primary-light);
+    background: linear-gradient(135deg, rgba(107,115,255,0.05) 0%, var(--white) 100%);
+}
+
+.message-card.message-success {
+    border-left-color: #10B981;
+    background: linear-gradient(135deg, rgba(16,185,129,0.05) 0%, var(--white) 100%);
+}
+
+.message-card.message-warning {
+    border-left-color: #F59E0B;
+    background: linear-gradient(135deg, rgba(245,158,11,0.05) 0%, var(--white) 100%);
+}
+
+.message-card.message-urgent {
+    border-left-color: #EF4444;
+    background: linear-gradient(135deg, rgba(239,68,68,0.05) 0%, var(--white) 100%);
+}
+
+.message-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.message-info .message-icon {
+    background: rgba(107,115,255,0.1);
+    color: var(--primary-light);
+}
+
+.message-success .message-icon {
+    background: rgba(16,185,129,0.1);
+    color: #10B981;
+}
+
+.message-warning .message-icon {
+    background: rgba(245,158,11,0.1);
+    color: #F59E0B;
+}
+
+.message-urgent .message-icon {
+    background: rgba(239,68,68,0.1);
+    color: #EF4444;
+}
+
+.message-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.message-title {
+    font-family: var(--font-serif);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 0.25rem;
+}
+
+.message-text {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
+.message-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--primary);
+    transition: gap 0.2s;
+}
+
+.message-link:hover {
+    gap: 0.75rem;
+}
+
+.messages-nav {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-bottom: 1rem;
+}
+
+.messages-nav-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: var(--white);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dark);
+    transition: all 0.2s;
+}
+
+.messages-nav-btn:hover {
+    background: var(--primary);
+    color: var(--white);
+    transform: scale(1.1);
+}
+
+.messages-dots {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.message-dot {
+    width: 8px;
+    height: 8px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(107,115,255,0.2);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.message-dot.active {
+    background: var(--primary);
+    transform: scale(1.2);
+}
+
+.message-dot:hover:not(.active) {
+    background: rgba(107,115,255,0.4);
+}
+
+/* ========================================
+   Pagination System
+   ======================================== */
+.paginated-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.paginated-grid {
+    flex: 1;
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+    .paginated-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.pagination-arrow {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border: 2px solid rgba(107,115,255,0.2);
+    border-radius: 50%;
+    background: var(--white);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+    transition: all 0.3s;
+    z-index: 5;
+}
+
+.pagination-arrow:hover:not(:disabled) {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--white);
+    transform: scale(1.1);
+}
+
+.pagination-arrow:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.pagination-dots {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+}
+
+.pagination-dot {
+    width: 10px;
+    height: 10px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(107,115,255,0.2);
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.pagination-dot.active {
+    background: var(--primary);
+    transform: scale(1.3);
+}
+
+.pagination-dot:hover:not(.active) {
+    background: rgba(107,115,255,0.4);
+}
+
+/* Responsive: hide arrows on mobile, show dots only */
+@media (max-width: 767px) {
+    .paginated-container {
+        flex-direction: column;
+    }
+    
+    .paginated-container .pagination-arrow {
+        display: none;
+    }
+}
+
+/* Animation pour le changement de page */
+.paginated-grid .realisation-card,
+.paginated-grid .project-card-link {
+    animation: fadeInUp 0.4s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Realisation card company info */
+.realisation-company-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-top: 1rem;
+    margin-top: 1rem;
+    border-top: 1px solid rgba(107,115,255,0.1);
+}
+
+.realisation-company-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    object-fit: cover;
+}
+
+.realisation-company-name {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.realisation-company-sector {
+    font-size: 0.72rem;
+    color: var(--text-light);
+}
