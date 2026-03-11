@@ -3,7 +3,10 @@ const API_BASE_URL = 'https://portfolio-mlb3.onrender.com/api'; // URL de l'API 
 
 // Clé de cache localStorage
 const CACHE_KEY = 'portfolio_data_cache';
+const MESSAGES_CACHE_KEY = 'portfolio_messages_cache';
+const FORMATIONS_CACHE_KEY = 'portfolio_formations_cache';
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 heures en millisecondes
+const MESSAGES_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes pour les messages (changent souvent)
 
 // Cache des données
 let portfolioData = null;
@@ -60,7 +63,43 @@ function setCachedData(data) {
 
 function clearCache() {
     localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(MESSAGES_CACHE_KEY);
+    localStorage.removeItem(FORMATIONS_CACHE_KEY);
     console.log('Cache vidé');
+}
+
+// Fonctions génériques pour cache avec durée personnalisée
+function getCachedItem(key) {
+    try {
+        const cached = localStorage.getItem(key);
+        if (!cached) return null;
+        
+        const { data, timestamp, duration } = JSON.parse(cached);
+        const maxDuration = duration || CACHE_DURATION;
+        const isExpired = Date.now() - timestamp > maxDuration;
+        
+        if (isExpired) {
+            localStorage.removeItem(key);
+            return null;
+        }
+        
+        return data;
+    } catch (error) {
+        return null;
+    }
+}
+
+function setCachedItem(key, data, duration = CACHE_DURATION) {
+    try {
+        const cacheEntry = {
+            data: data,
+            timestamp: Date.now(),
+            duration: duration
+        };
+        localStorage.setItem(key, JSON.stringify(cacheEntry));
+    } catch (error) {
+        console.warn('Erreur lors de la mise en cache:', error);
+    }
 }
 
 // ========================================
@@ -258,8 +297,13 @@ async function refreshDataInBackground() {
             const oldCache = localStorage.getItem(CACHE_KEY);
             const oldData = oldCache ? JSON.parse(oldCache).data : null;
             
-            // Mettre à jour le cache
+            // Mettre à jour le cache principal
             setCachedData(freshData);
+            
+            // Mettre à jour le cache des formations si présentes dans /all
+            if (freshData.formations) {
+                setCachedItem(FORMATIONS_CACHE_KEY, freshData.formations, CACHE_DURATION);
+            }
             
             // Mettre à jour l'UI en temps réel si les données ont changé
             if (JSON.stringify(freshData) !== JSON.stringify(oldData)) {
@@ -267,6 +311,8 @@ async function refreshDataInBackground() {
                 renderAllSections(freshData);
             } else {
                 console.log('Données identiques, pas de mise à jour nécessaire');
+                // Quand même rafraîchir les messages (changent souvent)
+                refreshMessagesInBackground();
             }
         }
     } catch (error) {
@@ -368,7 +414,14 @@ function renderStages(stages) {
     const container = document.getElementById('stages-timeline');
     container.innerHTML = '';
 
-    stages.forEach((stage, index) => {
+    // Trier les stages par date de fin (le plus récent en premier)
+    const sortedStages = [...stages].sort((a, b) => {
+        const dateA = new Date(a.end_date || a.start_date);
+        const dateB = new Date(b.end_date || b.start_date);
+        return dateB - dateA;
+    });
+
+    sortedStages.forEach((stage, index) => {
         const isRight = index % 2 === 1;
         const hasCompetences = stage.competences && stage.competences.length > 0;
 
@@ -412,7 +465,14 @@ function renderFormations(formations) {
     const container = document.getElementById('formations-timeline');
     container.innerHTML = '';
 
-    formations.forEach((formation, index) => {
+    // Trier les formations par date de fin (le plus récent en premier)
+    const sortedFormations = [...formations].sort((a, b) => {
+        const dateA = new Date(a.end_date || a.start_date);
+        const dateB = new Date(b.end_date || b.start_date);
+        return dateB - dateA;
+    });
+
+    sortedFormations.forEach((formation, index) => {
         const isRight = index % 2 === 1;
         const period = formation.period || `${formatDate(formation.start_date)} — ${formation.is_current ? 'En cours' : formatDate(formation.end_date)}`;
 
@@ -476,22 +536,41 @@ function renderRealisationsPage() {
     const end = start + ITEMS_PER_PAGE;
     const pageItems = allRealisations.slice(start, end);
     
+    const typeColors = {
+        'stage': '#000DFF',
+        'projet': '#6B73FF',
+    };
+    
     pageItems.forEach(real => {
+        const companyColor = real.company?.id ? parseInt(real.company.id.toString()) % 4 : 0;
+        const colors = ['#FF6B6B', '#FFA726', '#29B6F6', '#66BB6A'];
+        const bgColor = colors[companyColor % 4];
+        
         const realHtml = `
             <a href="realisation/page.html?id=${real.id}" class="realisation-card-link">
                 <div class="realisation-card">
-                    <div class="realisation-card-header">
-                        ${real.company?.photo_url ? `<img src="${real.company.photo_url}" alt="${real.company.name}" class="realisation-company-logo" />` : ''}
-                        <span class="realisation-company-name">${real.company?.name || ''}</span>
-                    </div>
-                    <span class="realisation-type">${real.type === 'stage' ? 'Stage' : 'Projet'}</span>
-                    <h4 class="realisation-title">${real.title}</h4>
-                    <p class="realisation-description">${real.description || ''}</p>
-                    ${real.tags && real.tags.length ? `
-                        <div class="realisation-tags">
-                            ${real.tags.map(tag => `<span class="tag">${tag.tag}</span>`).join('')}
+                    <div class="realisation-image" style="background: linear-gradient(135deg, ${bgColor}15, ${bgColor}05);">
+                        ${real.company?.photo_url ? `
+                            <img src="${real.company.photo_url}" alt="${real.company.name}" class="realisation-image-logo" />
+                        ` : `
+                            <div class="realisation-image-placeholder" style="background: ${bgColor};">
+                                <span>${real.company?.name?.charAt(0) || '?'}</span>
+                            </div>
+                        `}
+                        <div class="realisation-company-label" style="background: ${bgColor};">
+                            ${real.company?.name || 'Entreprise'}
                         </div>
-                    ` : ''}
+                    </div>
+                    <div class="realisation-content">
+                        <span class="realisation-type" style="color: ${bgColor}; background: ${bgColor}12;">${real.type === 'stage' ? 'Stage' : 'Réalisation'}</span>
+                        <h4 class="realisation-title">${real.title}</h4>
+                        <p class="realisation-description">${real.description || ''}</p>
+                        ${real.tags && real.tags.length ? `
+                            <div class="realisation-tags">
+                                ${real.tags.map(tag => `<span class="tag">${tag.tag}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
                     <span class="card-arrow">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M5 12h14M12 5l7 7-7 7"/>
@@ -754,25 +833,57 @@ async function renderAllSections(data) {
     if (data.formations) {
         renderFormations(data.formations);
     } else {
-        try {
-            const response = await fetchAPI('/formations');
-            const formations = response?.data || response;
-            renderFormations(formations);
-        } catch (error) {
-            console.warn('Erreur lors du chargement des formations:', error);
+        // Essayer le cache d'abord
+        const cachedFormations = getCachedItem(FORMATIONS_CACHE_KEY);
+        if (cachedFormations) {
+            renderFormations(cachedFormations);
+        } else {
+            try {
+                const response = await fetchAPI('/formations');
+                const formations = response?.data || response;
+                setCachedItem(FORMATIONS_CACHE_KEY, formations, CACHE_DURATION);
+                renderFormations(formations);
+            } catch (error) {
+                console.warn('Erreur lors du chargement des formations:', error);
+            }
         }
     }
     
-    // Charger les messages séparément (endpoint différent)
-    try {
-        const response = await fetchAPI('/messages');
-        const messages = response?.data || response;
-        renderMessages(messages);
-    } catch (error) {
-        console.warn('Erreur lors du chargement des messages:', error);
+    // Charger les messages (cache court car changent souvent)
+    const cachedMessages = getCachedItem(MESSAGES_CACHE_KEY);
+    if (cachedMessages) {
+        renderMessages(cachedMessages);
+        // Rafraîchir en arrière-plan quand même
+        refreshMessagesInBackground();
+    } else {
+        try {
+            const response = await fetchAPI('/messages');
+            const messages = response?.data || response;
+            setCachedItem(MESSAGES_CACHE_KEY, messages, MESSAGES_CACHE_DURATION);
+            renderMessages(messages);
+        } catch (error) {
+            console.warn('Erreur lors du chargement des messages:', error);
+        }
     }
     
     return true;
+}
+
+// Rafraîchir les messages en arrière-plan
+async function refreshMessagesInBackground() {
+    try {
+        const response = await fetchAPI('/messages');
+        const messages = response?.data || response;
+        const oldMessages = getCachedItem(MESSAGES_CACHE_KEY);
+        
+        if (JSON.stringify(messages) !== JSON.stringify(oldMessages)) {
+            console.log('Nouveaux messages détectés, mise à jour...');
+            setCachedItem(MESSAGES_CACHE_KEY, messages, MESSAGES_CACHE_DURATION);
+            renderMessages(messages);
+        }
+    } catch (error) {
+        // Silencieux en arrière-plan
+    }
 }
 
 // ========================================
@@ -800,15 +911,12 @@ function renderMessages(messages) {
     section.classList.remove('hidden');
     carousel.innerHTML = '';
     
-    // Icônes disponibles
-    const icons = {
-        'briefcase': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>',
-        'search': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>',
-        'star': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
-        'info': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
-        'alert': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
-        'calendar': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
-        'default': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>'
+    // Icône par défaut selon le type si pas d'icône spécifiée
+    const defaultIcons = {
+        'urgent': 'exclamation-triangle-fill',
+        'warning': 'exclamation-circle-fill',
+        'success': 'check-circle-fill',
+        'info': 'info-circle-fill'
     };
     
     // Types avec couleurs
@@ -821,21 +929,20 @@ function renderMessages(messages) {
     
     allMessages.forEach((msg, index) => {
         const typeClass = typeClasses[msg.type] || 'message-info';
-        const icon = icons[msg.icon] || icons['default'];
+        // Utiliser l'icône Bootstrap spécifiée ou l'icône par défaut du type
+        const iconName = msg.icon || defaultIcons[msg.type] || 'info-circle';
         
         const messageHtml = `
             <div class="message-slide ${index === 0 ? 'active' : ''}" data-index="${index}">
                 <div class="message-card ${typeClass}">
-                    <div class="message-icon">${icon}</div>
+                    <div class="message-icon"><i class="bi bi-${iconName}"></i></div>
                     <div class="message-content">
                         ${msg.title ? `<h4 class="message-title">${msg.title}</h4>` : ''}
                         <p class="message-text">${msg.message}</p>
                         ${msg.link_url ? `
                             <a href="${msg.link_url}" class="message-link" target="_blank" rel="noopener">
                                 ${msg.link_text || 'En savoir plus'}
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M5 12h14M12 5l7 7-7 7"/>
-                                </svg>
+                                <i class="bi bi-arrow-right"></i>
                             </a>
                         ` : ''}
                     </div>

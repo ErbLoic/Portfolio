@@ -187,7 +187,7 @@ function renderProject(project) {
         html += `
             <div class="detail-section">
                 <h2 class="section-title">Détails du projet</h2>
-                <div class="detail-description">${project.long_description.replace(/\n/g, '<br>')}</div>
+                <div class="detail-description markdown-content">${marked.parse(project.long_description)}</div>
             </div>
         `;
     }

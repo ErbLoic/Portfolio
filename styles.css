@@ -946,15 +946,77 @@ h1, h2, h3 {
 }
 
 .realisation-card {
+    position: relative;
+    cursor: pointer;
+    background: var(--white);
     border-radius: 1.5rem;
-    padding: 1.5rem;
+    overflow: hidden;
     border: 1px solid rgba(107,115,255,0.12);
     box-shadow: var(--shadow-soft);
     transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+    min-height: 420px;
+}
+
+.realisation-image {
+    position: relative;
+    height: 12rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.realisation-image-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.8;
+    transition: opacity 0.3s;
+}
+
+.realisation-card:hover .realisation-image-logo {
+    opacity: 0.95;
+}
+
+.realisation-image-placeholder {
+    width: 5rem;
+    height: 5rem;
+    border-radius: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: bold;
+    color: white;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+
+.realisation-company-label {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+    padding: 0.5rem 1rem;
+    border-radius: 50px;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    background: rgba(0,0,0,0.3) !important;
+}
+
+.realisation-content {
+    padding: 1.75rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .realisation-card:hover {
     transform: translateY(-4px);
+    border-color: var(--primary-light);
+    box-shadow: var(--shadow-medium);
 }
 
 .realisation-type {
@@ -964,9 +1026,9 @@ h1, h2, h3 {
     border-radius: 50px;
     font-size: 0.72rem;
     letter-spacing: 0.08em;
-    color: var(--primary-light);
-    background: rgba(107,115,255,0.12);
-    border: 1px solid rgba(107,115,255,0.25);
+    border: 1px solid;
+    border-color: inherit;
+    font-weight: 500;
 }
 
 .realisation-title {
@@ -974,20 +1036,22 @@ h1, h2, h3 {
     font-size: 1.3rem;
     font-weight: 600;
     color: var(--text-dark);
+    margin-bottom: 0.5rem;
 }
 
 .realisation-description {
     color: #666;
     font-size: 0.875rem;
-    line-height: 1.75;
-    margin-top: 0.6rem;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    flex: 1;
 }
 
 .realisation-tags {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    margin-top: 1rem;
+    margin-top: auto;
 }
 
 .tag {
@@ -1024,6 +1088,7 @@ h1, h2, h3 {
     border: 1px solid rgba(107,115,255,0.12);
     box-shadow: var(--shadow-soft);
     transition: all 0.3s;
+    min-height: 420px;
 }
 
 .project-card:hover {
@@ -1709,6 +1774,7 @@ footer {
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 1.5rem;
 }
 
 .message-info .message-icon {

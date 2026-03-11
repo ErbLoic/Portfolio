@@ -123,6 +123,124 @@
     color: var(--text-muted);
 }
 
+/* Styles pour le contenu Markdown */
+.markdown-content {
+    font-size: 1rem;
+    line-height: 1.8;
+    color: var(--text-muted);
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+    font-family: var(--font-serif);
+    color: var(--text-dark);
+    margin: 1.5rem 0 0.75rem;
+    font-weight: 600;
+}
+
+.markdown-content h1 { font-size: 2rem; }
+.markdown-content h2 { font-size: 1.75rem; }
+.markdown-content h3 { font-size: 1.5rem; }
+.markdown-content h4 { font-size: 1.25rem; }
+.markdown-content h5 { font-size: 1.1rem; }
+.markdown-content h6 { font-size: 1rem; }
+
+.markdown-content p {
+    margin-bottom: 1rem;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+    margin-left: 2rem;
+    margin-bottom: 1rem;
+}
+
+.markdown-content li {
+    margin-bottom: 0.5rem;
+}
+
+.markdown-content code {
+    background: rgba(0, 13, 255, 0.08);
+    color: var(--primary-dark);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+.markdown-content pre {
+    background: #f5f5f5;
+    border-left: 4px solid var(--primary);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    overflow-x: auto;
+}
+
+.markdown-content pre code {
+    background: none;
+    color: var(--text-dark);
+    padding: 0;
+    font-size: 0.95em;
+    line-height: 1.6;
+}
+
+.markdown-content blockquote {
+    border-left: 4px solid var(--primary-light);
+    padding-left: 1rem;
+    margin-left: 0;
+    margin-bottom: 1rem;
+    color: var(--text-light);
+    font-style: italic;
+}
+
+.markdown-content a {
+    color: var(--primary);
+    text-decoration: underline;
+    transition: opacity 0.2s;
+}
+
+.markdown-content a:hover {
+    opacity: 0.8;
+}
+
+.markdown-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    margin: 1rem 0;
+    box-shadow: var(--shadow-soft);
+}
+
+.markdown-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 1rem;
+}
+
+.markdown-content th,
+.markdown-content td {
+    border: 1px solid #e5e5ea;
+    padding: 0.75rem;
+    text-align: left;
+}
+
+.markdown-content th {
+    background: rgba(0, 13, 255, 0.05);
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.markdown-content hr {
+    border: none;
+    border-top: 1px solid #e5e5ea;
+    margin: 2rem 0;
+}
+
 /* Tags */
 .detail-tags {
     display: flex;

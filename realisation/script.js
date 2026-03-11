@@ -181,7 +181,7 @@ function renderRealisation(realisation) {
         html += `
             <div class="detail-section">
                 <h2 class="section-title">Détails</h2>
-                <div class="detail-description">${realisation.long_description.replace(/\n/g, '<br>')}</div>
+                <div class="detail-description markdown-content">${marked.parse(realisation.long_description)}</div>
             </div>
         `;
     }
