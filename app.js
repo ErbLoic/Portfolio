@@ -522,6 +522,13 @@ function renderRealisations(data) {
         }
     });
 
+    // Trier les réalisations par date de fin (le plus récent en premier)
+    allRealisations.sort((a, b) => {
+        const dateA = new Date(a.end_date || a.start_date);
+        const dateB = new Date(b.end_date || b.start_date);
+        return dateB - dateA;
+    });
+
     // Reset la page et affiche
     realisationsPage = 0;
     renderRealisationsPage();
@@ -656,7 +663,12 @@ function updateRealisationsArrows() {
 function renderProjects(projects) {
     if (!projects || !projects.length) return;
 
-    allProjects = projects;
+    // Trier les projets par année (le plus récent en premier)
+    allProjects = [...projects].sort((a, b) => {
+        const yearA = parseInt(a.year) || 0;
+        const yearB = parseInt(b.year) || 0;
+        return yearB - yearA;
+    });
     projectsPage = 0;
     renderProjectsPage();
     initProjectsPagination();
