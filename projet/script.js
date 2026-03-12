@@ -172,6 +172,37 @@ function renderProject(project) {
         <div class="detail-body">
     `;
     
+    // Entreprise
+    if (project.company) {
+        const company = project.company;
+        html += `
+            <div class="detail-section">
+                <h2 class="section-title">Entreprise</h2>
+                <div class="company-card">
+                    ${company.photo_url ? `
+                        <div class="company-logo">
+                            <img src="${getImageUrl(company.photo_url)}" alt="${company.name}" loading="lazy">
+                        </div>
+                    ` : ''}
+                    <div class="company-info">
+                        <h3 class="company-name">${company.name}</h3>
+                        ${company.sector ? `<span class="company-sector">${company.sector}</span>` : ''}
+                        ${company.location ? `
+                            <p class="company-location">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
+                                    <circle cx="12" cy="10" r="3"/>
+                                </svg>
+                                ${company.location}
+                            </p>
+                        ` : ''}
+                        ${company.description ? `<p class="company-description">${company.description}</p>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
     // Description
     if (project.description) {
         html += `
