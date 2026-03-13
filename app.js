@@ -1,5 +1,6 @@
 // Configuration de l'API
 const API_BASE_URL = 'https://portfolio-mlb3.onrender.com/api'; // URL de l'API Laravel
+const BASE_URL = 'https://portfolio-mlb3.onrender.com';
 
 // Clé de cache localStorage
 const CACHE_KEY = 'portfolio_data_cache';
@@ -10,6 +11,160 @@ const MESSAGES_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes pour les messages (c
 
 // Cache des données
 let portfolioData = null;
+
+// ========================================
+// Helper pour les images (Cloudflare R2) - Nouvelle API
+// ========================================
+
+function getImageUrl(img) {
+    if (!img) return '';
+    // Si c'est une string, c'est déjà l'URL
+    if (typeof img === 'string') {
+        if (img.startsWith('http')) return img;
+        return `${img.startsWith('/') ? '' : '/'}${img}`;
+    }
+    // Chercher les propriétés communes pour l'URL
+    const url = img.url || img.image_url || img.path || img.src || img.file || img.photo_url || '';
+    if (!url) return '';
+    // Si l'URL est déjà absolue (Cloudflare R2 ou autre)
+    if (url.startsWith('http')) return url;
+    // Sinon, ajouter le base URL
+    return `${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+function getImageAlt(img, fallback) {
+    if (!img) return fallback;
+    if (typeof img === 'string') return fallback;
+    return img.alt || img.caption || img.title || img.description || fallback;
+}
+
+// ========================================
+// Gestion des erreurs API robuste
+// ========================================
+
+function handleApiError(error, context = 'API') {
+    const errorMsg = error.message || 'Une erreur est survenue';
+    console.error(`[${context}] Erreur:`, error);
+    
+    // Afficher notification discrète si possible
+    if (context !== 'Photo Profil') { // Éviter le spam pour les petits éléments
+        showNotification(errorMsg, 'error', 5000);
+    }
+    
+    // Déterminer le type d'erreur
+    if (error.statusCode === 404 || errorMsg.includes('404')) {
+        console.warn(`[${context}] Ressource non trouvée`);
+    } else if (error.statusCode === 422 || errorMsg.includes('422')) {
+        console.warn(`[${context}] Données invalides`);
+    } else {
+        console.error(`[${context}] Erreur serveur (${error.statusCode || 500})`);
+    }
+}
+
+function parseApiResponse(response) {
+    // Nouvelle structure: { success, message, data }
+    if (!response.success) {
+        const error = new Error(response.error || response.message || 'Erreur API');
+        error.statusCode = response.statusCode || 500;
+        throw error;
+    }
+    return response.data;
+}
+
+// ========================================
+// Notifications visuelles
+// ========================================
+
+function showNotification(message, type = 'info', duration = 5000) {
+    try {
+        // Créer conteneur de notifications s'il n'existe pas
+        let notificationContainer = document.getElementById('notification-container');
+        if (!notificationContainer) {
+            notificationContainer = document.createElement('div');
+            notificationContainer.id = 'notification-container';
+            notificationContainer.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 10000;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                max-width: 400px;
+            `;
+            document.body.appendChild(notificationContainer);
+        }
+
+        // Créer notification
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.style.cssText = `
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            animation: slideIn 0.3s ease-out;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        `;
+
+        // Styles basés sur le type
+        const styles = {
+            'error': {
+                bg: '#FFE8E8',
+                text: '#C41E3A',
+                icon: '⚠️'
+            },
+            'success': {
+                bg: '#E8F5E9',
+                text: '#2E7D32',
+                icon: '✅'
+            },
+            'info': {
+                bg: '#E3F2FD',
+                text: '#1565C0',
+                icon: 'ℹ️'
+            },
+            'warning': {
+                bg: '#FFF3E0',
+                text: '#E65100',
+                icon: '⚡'
+            }
+        };
+
+        const style = styles[type] || styles['info'];
+        notification.style.backgroundColor = style.bg;
+        notification.style.color = style.text;
+        notification.style.border = `1px solid ${style.text}30`;
+
+        // Contenu
+        notification.innerHTML = `
+            <span style="font-size: 18px; flex-shrink: 0;">${style.icon}</span>
+            <span style="flex: 1; font-size: 0.95rem; line-height: 1.4;">${message}</span>
+            <button style="
+                background: none;
+                border: none;
+                color: inherit;
+                cursor: pointer;
+                font-size: 20px;
+                padding: 0;
+                flex-shrink: 0;
+            " onclick="this.parentElement.remove();">✕</button>
+        `;
+
+        notificationContainer.appendChild(notification);
+
+        // Auto-remove
+        if (duration > 0) {
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-out forwards';
+                setTimeout(() => notification.remove(), 300);
+            }, duration);
+        }
+    } catch (e) {
+        console.warn('Erreur affichage notification:', e);
+    }
+}
 
 // Pagination state
 let projectsPage = 0;
@@ -185,6 +340,13 @@ async function fetchAPI(endpoint, timeout = 60000) {
     
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: 'GET',
+            mode: 'cors',
+            credentials: 'omit',
+            // Pour les requêtes SIMPLE (sans preflight), ne pas inclure Content-Type
+            headers: {
+                'Accept': 'application/json'
+            },
             signal: controller.signal
         });
         clearTimeout(timeoutId);
@@ -195,9 +357,20 @@ async function fetchAPI(endpoint, timeout = 60000) {
         return await response.json();
     } catch (error) {
         clearTimeout(timeoutId);
-        if (error.name === 'AbortError') {
-            throw new Error('Timeout: le serveur met trop de temps à répondre');
+        
+        // Détection des erreurs CORS
+        if (error.message.includes('Failed to fetch') || 
+            error.name === 'TypeError') {
+            console.error(`❌ Erreur CORS sur ${endpoint}`);
+            const corsError = new Error(`Erreur rapport au serveur: ${endpoint}`);
+            corsError.isCorsError = true;
+            throw corsError;
         }
+        
+        if (error.name === 'AbortError') {
+            throw new Error('⏱️ Timeout: le serveur met trop de temps à répondre');
+        }
+        
         console.error(`Erreur lors de la récupération de ${endpoint}:`, error);
         throw error;
     }
@@ -209,13 +382,19 @@ async function warmupServer() {
         const startTime = Date.now();
         await fetch(`${API_BASE_URL}/ping`, { 
             method: 'GET',
-            mode: 'cors'
+            mode: 'cors',
+            credentials: 'omit'
+            // Pas de headers = requête SIMPLE sans preflight
         });
         const duration = Date.now() - startTime;
-        console.log(`Serveur réveillé en ${duration}ms`);
+        console.log(`✅ Serveur réveillé en ${duration}ms`);
         return true;
     } catch (error) {
-        console.warn('Ping échoué, tentative de chargement direct...', error);
+        if (error.message.includes('Failed to fetch')) {
+            console.warn('⚠️ Problème CORS au démarrage - Utilisation du cache');
+        } else {
+            console.warn('⚠️ Ping échoué, tentative de chargement direct...', error.message);
+        }
         return false;
     }
 }
@@ -237,10 +416,15 @@ function startPingInterval() {
     // Ping toutes les 5 minutes pour garder le serveur éveillé
     setInterval(async () => {
         try {
-            await fetch(`${API_BASE_URL}/ping`);
-            console.log('Ping envoyé au serveur');
+            await fetch(`${API_BASE_URL}/ping`, {
+                method: 'GET',
+                mode: 'cors',
+                credentials: 'omit'
+                // Pas de headers = requête SIMPLE sans preflight
+            });
+            console.log('✅ Ping envoyé au serveur');
         } catch (error) {
-            console.error('Erreur ping:', error);
+            console.debug('⚠️ Erreur ping en arrière-plan (non critique)');
         }
     }, 5 * 60 * 1000); // 5 minutes
 }
@@ -255,34 +439,58 @@ async function loadAllData(useCache = true) {
         const cachedData = getCachedData();
         if (cachedData) {
             portfolioData = cachedData;
+            console.log('✅ Données chargées depuis le cache local');
             return cachedData;
         }
     }
     
     // Sinon charger depuis l'API
     try {
-        portfolioData = await fetchAPI('/all');
+        console.log('🔄 Chargement depuis l\'API...');
+        const response = await fetchAPI('/all');
+        portfolioData = response;
         
         // Mettre en cache les nouvelles données
         if (portfolioData) {
             setCachedData(portfolioData);
+            console.log('✅ Données chargées depuis l\'API et mises en cache');
         }
         
         return portfolioData;
     } catch (error) {
-        console.error('Erreur lors du chargement des données:', error);
+        console.error('❌ Erreur lors du chargement depuis l\'API:', error.message);
+        
+        // Afficher un message d'erreur clair
+        if (error.isCorsError) {
+            console.error('⚠️ Problème CORS détecté - Le serveur n\'a pas configuré les en-têtes CORS');
+            showNotification(
+                'Impossible de charger les données du serveur. Utilisation du cache local.',
+                'warning',
+                6000
+            );
+        } else {
+            handleApiError(error, 'Chargement principal');
+            showNotification(
+                error.message || 'Erreur lors du chargement des données',
+                'error',
+                6000
+            );
+        }
         
         // En cas d'erreur, essayer de retourner les données du cache même expirées
         const fallbackCache = localStorage.getItem(CACHE_KEY);
         if (fallbackCache) {
             try {
                 const { data } = JSON.parse(fallbackCache);
-                console.log('Utilisation du cache de secours');
+                console.warn('⚠️ Utilisation du cache de secours (données possiblement anciennes)');
                 return data;
             } catch (e) {
+                console.error('❌ Cache de secours invalide:', e);
                 return null;
             }
         }
+        
+        console.error('❌ Aucune donnée disponible (pas de cache)');
         return null;
     }
 }
@@ -336,7 +544,20 @@ function renderPortfolio(data) {
 
     // Profil
     if (portfolio.photo_url) {
-        document.getElementById('profil-photo').src = portfolio.photo_url;
+        try {
+            const photoProfil = document.getElementById('profil-photo');
+            const imgUrl = getImageUrl(portfolio.photo_url);
+            photoProfil.src = imgUrl;
+            photoProfil.alt = `${portfolio.first_name || 'Profil'} ${portfolio.last_name || ''}`;
+            photoProfil.loading = 'lazy';
+            photoProfil.style.objectFit = 'cover';
+            photoProfil.onerror = () => {
+                console.warn('Erreur chargement photo profil:', imgUrl);
+                photoProfil.style.opacity = '0.5';
+            };
+        } catch (error) {
+            handleApiError(error, 'Photo Profil');
+        }
     }
     document.getElementById('profil-bio').textContent = portfolio.bio || '';
     document.getElementById('promo-years').textContent = `${portfolio.year_start} — ${portfolio.year_end}`;
@@ -491,7 +712,10 @@ function renderFormations(formations) {
                     ${formation.description ? `<p class="stage-description">${formation.description}</p>` : ''}
                     ${formation.logo_url ? `
                         <div class="formation-logo">
-                            <img src="${formation.logo_url}" alt="${formation.school}" />
+                            <img src="${getImageUrl(formation.logo_url)}" 
+                                 alt="${formation.school}" 
+                                 loading="lazy" 
+                                 onerror="this.style.display='none'; this.parentElement.style.display='none';" />
                         </div>
                     ` : ''}
                 </div>
@@ -558,12 +782,15 @@ function renderRealisationsPage() {
                 <div class="realisation-card">
                     <div class="realisation-image" style="background: linear-gradient(135deg, ${bgColor}15, ${bgColor}05);">
                         ${real.company?.photo_url ? `
-                            <img src="${real.company.photo_url}" alt="${real.company.name}" class="realisation-image-logo" />
-                        ` : `
-                            <div class="realisation-image-placeholder" style="background: ${bgColor};">
-                                <span>${real.company?.name?.charAt(0) || '?'}</span>
-                            </div>
-                        `}
+                            <img src="${getImageUrl(real.company.photo_url)}" 
+                                 alt="${real.company.name}" 
+                                 class="realisation-image-logo" 
+                                 loading="lazy"
+                                 onerror="this.style.display='none'; this.closest('.realisation-image').querySelector('.realisation-image-placeholder').style.display='flex';" />
+                        ` : ''}
+                        <div class="realisation-image-placeholder" style="background: ${bgColor}; ${real.company?.photo_url ? 'display: none;' : ''}">
+                            <span>${real.company?.name?.charAt(0) || '?'}</span>
+                        </div>
                         <div class="realisation-company-label" style="background: ${bgColor};">
                             ${real.company?.name || 'Entreprise'}
                         </div>
@@ -1062,7 +1289,7 @@ async function init() {
     
     if (cachedData) {
         // Affichage instantané depuis le cache !
-        console.log('Affichage instantané depuis le cache');
+        console.log('✅ Affichage instantané depuis le cache');
         document.getElementById('loader-status').textContent = "Chargement instantané...";
         document.getElementById('loader-tip').textContent = "Données locales disponibles";
         updateProgress(100);
@@ -1082,26 +1309,48 @@ async function init() {
 
     try {
         // D'abord réveiller le serveur avec un ping
+        console.log('⏳ Tentative de connexion au serveur...');
         await warmupServer();
         
         // Mettre à jour le message
         document.getElementById('loader-status').textContent = "Chargement des données...";
         updateProgress(50);
         
-        // Charger toutes les données (sans cache car on sait qu'il n'y en a pas)
-        const data = await loadAllData(false);
+        // Charger toutes les données (accepte aussi le cache de secours en cas d'erreur)
+        const data = await loadAllData(true);
 
-        if (data) {
+        if (data && Object.keys(data).length > 0) {
+            console.log('✅ Données chargées avec succès');
             updateProgress(80);
             renderAllSections(data);
             updateProgress(100);
         } else {
-            throw new Error('Aucune donnée reçue');
+            throw new Error('❌ Aucune donnée disponible - Vérifiez votre connexion internet');
         }
     } catch (error) {
-        console.error('Erreur lors de l\'initialisation:', error);
-        document.getElementById('loader-status').textContent = "Oops, une erreur s'est produite";
-        document.getElementById('loader-tip').textContent = "Veuillez rafraîchir la page pour réessayer";
+        console.error('❌ Erreur lors de l\'initialisation:', error.message || error);
+        
+        // Afficher le message d'erreur spécifique
+        let errorMessage = "Impossible de charger les données";
+        let errorTip = "Veuillez vérifier votre connexion internet et rafraîchir la page";
+        
+        if (error.isCorsError) {
+            errorMessage = "Problème de connexion au serveur";
+            errorTip = "Le serveur API n'est pas correctement configuré. Utilisation du cache si disponible.";
+        } else if (error.message.includes('Timeout')) {
+            errorMessage = "Le serveur met trop de temps à répondre";
+            errorTip = "Veuillez rafraîchir la page pour réessayer";
+        }
+        
+        document.getElementById('loader-status').textContent = errorMessage;
+        document.getElementById('loader-tip').textContent = errorTip;
+        
+        // Afficher notification
+        showNotification(
+            `${errorMessage}. ${errorTip}`,
+            'error',
+            10000
+        );
     } finally {
         hideLoadingOverlay();
     }

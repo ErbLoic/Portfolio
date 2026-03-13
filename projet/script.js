@@ -19,7 +19,7 @@ function getImageUrl(img) {
         return `${BASE_URL}${img.startsWith('/') ? '' : '/'}${img}`;
     }
     // Chercher les propriétés communes pour l'URL
-    const url = img.url || img.image_url || img.path || img.src || img.file || '';
+    const url = img.url || img.image_url || img.path || img.src || img.file || img.photo_url || '';
     if (!url) return '';
     // Si l'URL est déjà absolue
     if (url.startsWith('http')) return url;
@@ -31,6 +31,26 @@ function getImageAlt(img, fallback) {
     if (!img) return fallback;
     if (typeof img === 'string') return fallback;
     return img.alt || img.caption || img.title || img.description || fallback;
+}
+
+// ========================================
+// Gestion des erreurs API robuste
+// ========================================
+
+function handleApiError(error, context = 'Projet') {
+    console.error(`[${context}] Erreur:`, error);
+    if (error.message && error.message.includes('404')) {
+        console.warn(`[${context}] Ressource non trouvée`);
+    }
+}
+
+function parseApiResponse(response) {
+    // Nouvelle structure: { success, message, data }
+    if (!response.success) {
+        const error = new Error(response.error || response.message || 'Erreur API');
+        throw error;
+    }
+    return response.data;
 }
 
 // ========================================
@@ -181,7 +201,10 @@ function renderProject(project) {
                 <div class="company-card">
                     ${company.photo_url ? `
                         <div class="company-logo">
-                            <img src="${getImageUrl(company.photo_url)}" alt="${company.name}" loading="lazy">
+                            <img src="${getImageUrl(company.photo_url)}" 
+                                 alt="${company.name}" 
+                                 loading="lazy"
+                                 onerror="console.warn('Erreur chargement logo:', this.src); this.style.display='none';">
                         </div>
                     ` : ''}
                     <div class="company-info">
@@ -263,7 +286,10 @@ function renderProject(project) {
                     ${project.images.map((img, index) => `
                         <div class="gallery-card" onclick="openLightbox(${index})">
                             <div class="gallery-card-image">
-                                <img src="${getImageUrl(img)}" alt="${getImageAlt(img, project.title + ' - Image ' + (index + 1))}" loading="lazy">
+                                <img src="${getImageUrl(img)}" 
+                                     alt="${getImageAlt(img, project.title + ' - Image ' + (index + 1))}" 
+                                     loading="lazy"
+                                     onerror="console.warn('Erreur image galerie:', this.src); this.style.opacity='0.3'; this.style.cursor='not-allowed';">
                                 <div class="gallery-overlay">
                                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <circle cx="11" cy="11" r="8"/>
