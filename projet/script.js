@@ -45,12 +45,25 @@ function handleApiError(error, context = 'Projet') {
 }
 
 function parseApiResponse(response) {
-    // Nouvelle structure: { success, message, data }
-    if (!response.success) {
-        const error = new Error(response.error || response.message || 'Erreur API');
-        throw error;
+    // Structure API: { success: boolean, message?: string, data: any } ou { error: string }
+    // Les requêtes GET retournent directement les données ou { success, message, data }
+    
+    // Si la réponse a un champ success explicite
+    if (response && typeof response === 'object' && 'success' in response) {
+        if (!response.success) {
+            const error = new Error(response.error || response.message || 'Erreur API');
+            throw error;
+        }
+        return response.data;
     }
-    return response.data;
+    
+    // Si la réponse a un champ error
+    if (response && typeof response === 'object' && 'error' in response) {
+        throw new Error(response.error);
+    }
+    
+    // Sinon, retourner directement (GET routes retournent les données directement)
+    return response;
 }
 
 // ========================================
@@ -150,14 +163,20 @@ async function fetchAPI(endpoint, timeout = 60000) {
     
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: 'GET',
+            mode: 'cors',
+            credentials: 'omit',
             signal: controller.signal
+            // GET sans body - pas de headers
         });
         clearTimeout(timeoutId);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return await response.json();
+        
+        const data = await response.json();
+        return parseApiResponse(data);
     } catch (error) {
         clearTimeout(timeoutId);
         throw error;
@@ -457,7 +476,8 @@ async function init() {
 
 async function refreshProjectInBackground(projectId) {
     try {
-        const freshData = await fetchAPI(`/projects/${projectId}`);
+        // Timeout plus long pour les requêtes non-critiques (120 secondes)
+        const freshData = await fetchAPI(`/projects/${projectId}`, 120000);
         if (freshData) {
             setCachedProject(projectId, freshData);
             // Mettre à jour l'UI si les données ont changé
@@ -519,13 +539,6 @@ function addLightboxToDOM(images, title) {
                                 <path d="M3 3v5h5"/>
                             </svg>
                         </button>
-                    </div>
-                    <div class="lightbox-hint" id="lightbox-hint">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <path d="M12 16v-4M12 8h.01"/>
-                        </svg>
-                        Scroll pour naviguer • Double-clic pour zoomer
                     </div>
                 </div>
                 <div class="lightbox-sidebar">

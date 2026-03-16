@@ -62,13 +62,26 @@ function handleApiError(error, context = 'API') {
 }
 
 function parseApiResponse(response) {
-    // Nouvelle structure: { success, message, data }
-    if (!response.success) {
-        const error = new Error(response.error || response.message || 'Erreur API');
-        error.statusCode = response.statusCode || 500;
-        throw error;
+    // Structure API: { success: boolean, message?: string, data: any } ou { error: string }
+    // Les requêtes GET retournent directement les données ou { success, message, data }
+    
+    // Si la réponse a un champ success explicite
+    if (response && typeof response === 'object' && 'success' in response) {
+        if (!response.success) {
+            const error = new Error(response.error || response.message || 'Erreur API');
+            error.statusCode = response.statusCode || 500;
+            throw error;
+        }
+        return response.data;
     }
-    return response.data;
+    
+    // Si la réponse a un champ error
+    if (response && typeof response === 'object' && 'error' in response) {
+        throw new Error(response.error);
+    }
+    
+    // Sinon, retourner directement (GET routes retournent les données directement)
+    return response;
 }
 
 // ========================================
@@ -267,7 +280,10 @@ const loadingMessages = [
     { status: "Établissement de la connexion...", tip: "Première visite ? Le chargement initial est plus long" },
     { status: "Chargement des données...", tip: "Merci de patienter, c'est bientôt prêt !" },
     { status: "Presque terminé...", tip: "Les prochaines visites seront plus rapides" },
-    { status: "Finalisation...", tip: "Le serveur est maintenant actif" }
+    { status: "Finalisation...", tip: "Le serveur est maintenant actif" },
+    { status: "C'est parti !", tip: "Merci pour votre patience, profitez du portfolio !" ,
+    }
+
 ];
 
 let loadingInterval = null;
@@ -343,18 +359,17 @@ async function fetchAPI(endpoint, timeout = 60000) {
             method: 'GET',
             mode: 'cors',
             credentials: 'omit',
-            // Pour les requêtes SIMPLE (sans preflight), ne pas inclure Content-Type
-            headers: {
-                'Accept': 'application/json'
-            },
             signal: controller.signal
+            // GET sans body - pas de headers pour requête SIMPLE (sans preflight)
         });
         clearTimeout(timeoutId);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return await response.json();
+        
+        const data = await response.json();
+        return parseApiResponse(data);
     } catch (error) {
         clearTimeout(timeoutId);
         
@@ -380,12 +395,18 @@ async function fetchAPI(endpoint, timeout = 60000) {
 async function warmupServer() {
     try {
         const startTime = Date.now();
-        await fetch(`${API_BASE_URL}/ping`, { 
+        const response = await fetch(`${API_BASE_URL}/ping`, { 
             method: 'GET',
             mode: 'cors',
             credentials: 'omit'
-            // Pas de headers = requête SIMPLE sans preflight
+            // GET sans body - pas de headers pour requête SIMPLE
         });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
         const duration = Date.now() - startTime;
         console.log(`✅ Serveur réveillé en ${duration}ms`);
         return true;
@@ -416,13 +437,16 @@ function startPingInterval() {
     // Ping toutes les 5 minutes pour garder le serveur éveillé
     setInterval(async () => {
         try {
-            await fetch(`${API_BASE_URL}/ping`, {
+            const response = await fetch(`${API_BASE_URL}/ping`, {
                 method: 'GET',
                 mode: 'cors',
                 credentials: 'omit'
-                // Pas de headers = requête SIMPLE sans preflight
+                // GET sans body - pas de headers pour requête SIMPLE
             });
-            console.log('✅ Ping envoyé au serveur');
+            
+            if (response.ok) {
+                console.log('✅ Ping envoyé au serveur');
+            }
         } catch (error) {
             console.debug('⚠️ Erreur ping en arrière-plan (non critique)');
         }
@@ -1358,3 +1382,55 @@ async function init() {
 
 // Lancer l'initialisation au chargement de la page
 document.addEventListener('DOMContentLoaded', init);
+
+// ----------------------------------------
+// Enable clickable contact cards (robust + accessible)
+// ----------------------------------------
+function enableContactCardsInteractions() {
+    const cards = document.querySelectorAll('.contact-card');
+    if (!cards || !cards.length) return;
+
+    cards.forEach((card, idx) => {
+        // Make focusable and keyboard-usable
+        card.style.cursor = 'pointer';
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('role', 'button');
+
+        // Prevent clicks on internal anchors from bubbling to the card
+        card.querySelectorAll('a').forEach(a => a.addEventListener('click', e => e.stopPropagation()));
+
+        // Determine action per card position (matches current HTML ordering)
+        let handler = null;
+        if (idx === 0) {
+            const emailEl = document.getElementById('contact-email');
+            if (emailEl) handler = () => { const em = emailEl.textContent.trim(); if (em) window.location.href = `mailto:${em}`; };
+        } else if (idx === 1) {
+            const ln = document.getElementById('contact-linkedin');
+            if (ln) handler = () => { const href = ln.href; if (href && href !== '#') window.open(href, '_blank'); };
+        } else if (idx === 2) {
+            const gh = document.getElementById('contact-github');
+            if (gh) handler = () => { const href = gh.href; if (href && href !== '#') window.open(href, '_blank'); };
+        } else {
+            // Fallback: open first internal link
+            const a = card.querySelector('a');
+            if (a && a.href) handler = () => { window.open(a.href, '_blank'); };
+        }
+
+        if (handler) {
+            card.onclick = handler;
+            card.onkeydown = (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); }
+            };
+        }
+    });
+}
+
+// Run once initially and re-run when contact cards change
+document.addEventListener('DOMContentLoaded', () => {
+    enableContactCardsInteractions();
+    const container = document.querySelector('.contact-cards');
+    if (container) {
+        const mo = new MutationObserver(() => enableContactCardsInteractions());
+        mo.observe(container, { childList: true, subtree: true });
+    }
+});
