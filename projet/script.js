@@ -296,30 +296,22 @@ function renderProject(project) {
         `;
     }
     
-    // Images / Galerie
+    // Images / Galerie de cartes
     if (project.images && project.images.length > 0) {
         html += `
-            <div class="detail-section">
+            <div class="detail-section gallery-section">
                 <h2 class="section-title">Captures d'écran</h2>
-                <div class="image-gallery-enhanced">
+                <div class="images-gallery">
                     ${project.images.map((img, index) => `
-                        <div class="gallery-card" onclick="openLightbox(${index})">
+                        <div class="gallery-card" style="cursor: pointer;" onclick="openImageZoom(${index})">
                             <div class="gallery-card-image">
                                 <img src="${getImageUrl(img)}" 
-                                     alt="${getImageAlt(img, project.title + ' - Image ' + (index + 1))}" 
-                                     loading="lazy"
-                                     onerror="console.warn('Erreur image galerie:', this.src); this.style.opacity='0.3'; this.style.cursor='not-allowed';">
-                                <div class="gallery-overlay">
-                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <circle cx="11" cy="11" r="8"/>
-                                        <path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/>
-                                    </svg>
-                                    <span>Agrandir</span>
-                                </div>
+                                     alt="${img.caption || getImageAlt(img, project.title + ' - Image ' + (index + 1))}" 
+                                     loading="lazy">
                             </div>
-                            <div class="gallery-card-info">
-                                <h4 class="gallery-card-title">${img.caption || 'Image ' + (index + 1)}</h4>
-                                ${img.description ? `<p class="gallery-card-description">${img.description}</p>` : ''}
+                            <div class="gallery-card-content">
+                                <h3 class="gallery-card-title">${img.caption || 'Vue ' + (index + 1)}</h3>
+                                <p class="gallery-card-description">${img.description || 'Cliquez pour zoomer et voir le diaporama'}</p>
                             </div>
                         </div>
                     `).join('')}
@@ -539,6 +531,9 @@ function addLightboxToDOM(images, title) {
                                 <path d="M3 3v5h5"/>
                             </svg>
                         </button>
+                        <button class="zoom-btn freeze-btn" onclick="toggleFreezeDiashow(event)" aria-label="Geler le diaporama" title="Geler le diaporama">
+                            <i class="bi bi-snow"></i>
+                        </button>
                     </div>
                 </div>
                 <div class="lightbox-sidebar">
@@ -580,6 +575,7 @@ function openLightbox(index) {
 
 function closeLightbox(event) {
     if (event) event.stopPropagation();
+    stopLightboxSlideshow();
     const lightbox = document.getElementById('lightbox');
     if (lightbox) {
         lightbox.classList.remove('active');
@@ -666,21 +662,20 @@ function initZoom() {
 function handleWheelZoom(e) {
     e.preventDefault();
     
-    // Si pas zoomé, naviguer entre les images
-    if (currentZoom <= 1 && galleryImages.length > 1) {
-        // Utiliser deltaY pour navigation verticale ou deltaX pour horizontale
-        const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-        if (delta > 30) {
-            navigateLightbox(1);
-        } else if (delta < -30) {
-            navigateLightbox(-1);
-        }
+    // Récupérer la direction du scroll
+    const delta = e.deltaY > 0 ? 1 : -1;
+    
+    // Si on est zoomé, zoomer/dézoomer avec scroll
+    if (currentZoom > 1) {
+        const zoomDelta = delta > 0 ? -0.15 : 0.15;
+        zoomImage(zoomDelta);
         return;
     }
     
-    // Si zoomé, utiliser le scroll pour zoomer/dézoomer
-    const zoomDelta = e.deltaY > 0 ? -0.15 : 0.15;
-    zoomImage(zoomDelta);
+    // Si on n'est pas zoomé, changer d'image avec scroll
+    if (galleryImages.length > 1) {
+        navigateLightbox(delta);
+    }
 }
 
 function handleDoubleClickZoom(e) {
@@ -867,9 +862,11 @@ function handleLightboxKeyboard(e) {
             closeLightbox();
             break;
         case 'ArrowLeft':
+            stopLightboxSlideshow();
             navigateLightbox(-1);
             break;
         case 'ArrowRight':
+            stopLightboxSlideshow();
             navigateLightbox(1);
             break;
         case '+':
@@ -882,8 +879,78 @@ function handleLightboxKeyboard(e) {
         case '0':
             resetZoom();
             break;
+
     }
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+// ========================================
+// Diaporama dans Lightbox
+// ========================================
+
+let lightboxSlideshowInterval = null;
+let lightboxSlideshowPlaying = false;
+let lighboxyFrozen = false;
+const LIGHTBOX_SLIDESHOW_DELAY = 3000; // 3 secondes
+
+function startLightboxSlideshow(event) {
+    if (event) event.stopPropagation();
+    
+    if (galleryImages.length <= 1) return;
+    
+    lightboxSlideshowPlaying = true;
+    lighboxyFrozen = false;
+    updateFreezeButton();
+    
+    lightboxSlideshowInterval = setInterval(() => {
+        if (!lighboxyFrozen) {
+            currentImageIndex = (currentImageIndex + 1) % galleryImages.length;
+            updateLightboxImage();
+        }
+    }, LIGHTBOX_SLIDESHOW_DELAY);
+}
+
+function toggleFreezeDiashow(event) {
+    if (event) event.stopPropagation();
+    
+    lighboxyFrozen = !lighboxyFrozen;
+    updateFreezeButton();
+}
+
+function updateFreezeButton() {
+    const freezeBtn = document.querySelector('.freeze-btn');
+    if (freezeBtn) {
+        freezeBtn.classList.toggle('active', lighboxyFrozen);
+    }
+}
+
+function stopLightboxSlideshow() {
+    if (lightboxSlideshowInterval) {
+        clearInterval(lightboxSlideshowInterval);
+        lightboxSlideshowInterval = null;
+    }
+    
+    lightboxSlideshowPlaying = false;
+    lighboxyFrozen = false;
+    updateFreezeButton();
+}
+
+// ========================================
+// ========================================
+// Zoom Image Mode
+// ========================================
+
+function openImageZoom(imageIndex = 0) {
+    currentImageIndex = imageIndex;
+    const lightbox = document.getElementById('lightbox');
+    if (!lightbox) return;
+    
+    updateLightboxImage();
+    lightbox.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    
+    // Auto-démarrer le diaporama
+    startLightboxSlideshow();
+}
 
