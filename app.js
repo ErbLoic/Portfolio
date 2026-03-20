@@ -752,30 +752,58 @@ function renderFormations(formations) {
 }
 
 function renderRealisations(data) {
-    if (!data || !data.realisations || !data.companies) return;
+    if (!data) return;
 
     const container = document.getElementById('realisations-by-company');
     container.innerHTML = '';
 
-    const realisationsByCompany = data.realisationsByCompany || {};
-    
-    // Collecte toutes les réalisations dans un tableau aplati
-    allRealisations = [];
-    data.companies.forEach(company => {
-        const companyRealisations = realisationsByCompany[company.id];
-        if (companyRealisations && companyRealisations.length) {
-            companyRealisations.forEach(real => {
-                allRealisations.push({ ...real, company });
-            });
-        }
-    });
+    // Collecte toutes les réalisations
+    let allRealisationsOnly = [];
+    if (data.realisations && data.companies && data.realisationsByCompany) {
+        const realisationsByCompany = data.realisationsByCompany || {};
+        data.companies.forEach(company => {
+            const companyRealisations = realisationsByCompany[company.id];
+            if (companyRealisations && companyRealisations.length) {
+                companyRealisations.forEach(real => {
+                    allRealisationsOnly.push({ ...real, company, itemType: 'realisation' });
+                });
+            }
+        });
+    }
 
-    // Trier les réalisations par date de fin (le plus récent en premier)
-    allRealisations.sort((a, b) => {
+    // Collecte tous les projets
+    let allProjectsOnly = [];
+    if (data.projects && Array.isArray(data.projects)) {
+        data.projects.forEach(projet => {
+            allProjectsOnly.push({ ...projet, itemType: 'project' });
+        });
+    }
+
+    // Trier les réalisations par date
+    allRealisationsOnly.sort((a, b) => {
         const dateA = new Date(a.end_date || a.start_date);
         const dateB = new Date(b.end_date || b.start_date);
         return dateB - dateA;
     });
+
+    // Trier les projets par année
+    allProjectsOnly.sort((a, b) => {
+        const yearA = parseInt(a.year) || 0;
+        const yearB = parseInt(b.year) || 0;
+        return yearB - yearA;
+    });
+
+    // Combiner : entrelasser réalisations et projets (1 réal, 1 projet, 1 réal, 1 projet...)
+    allRealisations = [];
+    const maxLen = Math.max(allRealisationsOnly.length, allProjectsOnly.length);
+    for (let i = 0; i < maxLen; i++) {
+        if (i < allRealisationsOnly.length) {
+            allRealisations.push(allRealisationsOnly[i]);
+        }
+        if (i < allProjectsOnly.length) {
+            allRealisations.push(allProjectsOnly[i]);
+        }
+    }
 
     // Reset la page et affiche
     realisationsPage = 0;
@@ -796,36 +824,65 @@ function renderRealisationsPage() {
         'projet': '#6B73FF',
     };
     
-    pageItems.forEach(real => {
-        const companyColor = real.company?.id ? parseInt(real.company.id.toString()) % 4 : 0;
-        const colors = ['#FF6B6B', '#FFA726', '#29B6F6', '#66BB6A'];
-        const bgColor = colors[companyColor % 4];
+    pageItems.forEach(item => {
+        const isProject = item.itemType === 'project';
+        const href = isProject ? `projet/page.html?id=${item.id}` : `realisation/page.html?id=${item.id}`;
+        
+        // Déterminer la couleur
+        let bgColor;
+        if (isProject) {
+            const projectTypeColors = {
+                'Application Web': '#000DFF',
+                'Web': '#000DFF',
+                'Application Mobile': '#6B73FF',
+                'Flutter': '#6B73FF',
+                'Script & Automatisation': '#3b44d1',
+                'Application C#': '#FF6B35',
+                'Base de données': '#8b92ff',
+                'BDD': '#8b92ff',
+            };
+            bgColor = projectTypeColors[item.type] || '#6B73FF';
+        } else {
+            const companyColor = item.company?.id ? parseInt(item.company.id.toString()) % 4 : 0;
+            const colors = ['#FF6B6B', '#FFA726', '#29B6F6', '#66BB6A'];
+            bgColor = colors[companyColor % 4];
+        }
         
         const realHtml = `
-            <a href="realisation/page.html?id=${real.id}" class="realisation-card-link">
+            <a href="${href}" class="realisation-card-link">
                 <div class="realisation-card">
                     <div class="realisation-image" style="background: linear-gradient(135deg, ${bgColor}15, ${bgColor}05);">
-                        ${real.company?.photo_url ? `
-                            <img src="${getImageUrl(real.company.photo_url)}" 
-                                 alt="${real.company.name}" 
-                                 class="realisation-image-logo" 
-                                 loading="lazy"
-                                 onerror="this.style.display='none'; this.closest('.realisation-image').querySelector('.realisation-image-placeholder').style.display='flex';" />
-                        ` : ''}
-                        <div class="realisation-image-placeholder" style="background: ${bgColor}; ${real.company?.photo_url ? 'display: none;' : ''}">
-                            <span>${real.company?.name?.charAt(0) || '?'}</span>
+                    <div class="project-decoration-1" style="background: ${bgColor};"></div>
+                    <div class="project-decoration-2" style="background: ${bgColor};"></div>
+
+                    ${item.company?.photo_url ? `
+                        <img src="${getImageUrl(item.company.photo_url)}" 
+                             alt="${item.company?.name || ''}" 
+                             class="realisation-image-logo" 
+                             loading="lazy"
+                             onerror="this.style.display='none'; this.closest('.realisation-image').querySelector('.project-icon').style.display='flex';" />
+                        <div class="project-icon" style="background: ${bgColor}; box-shadow: 0 8px 24px ${bgColor}40; display: none;">
+                    ` : `
+                        <div class="project-icon" style="background: ${bgColor}; box-shadow: 0 8px 24px ${bgColor}40;">
+                    `}
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                                <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3M3 16v3a2 2 0 002 2h3m8 0h3a2 2 0 002-2v-3" stroke="white" stroke-width="2" stroke-linecap="round" />
+                            </svg>
                         </div>
+                    
+                    ${item.company?.name ? `
                         <div class="realisation-company-label" style="background: ${bgColor};">
-                            ${real.company?.name || 'Entreprise'}
+                            ${item.company.name}
                         </div>
-                    </div>
+                    ` : ''}
+                </div>
                     <div class="realisation-content">
-                        <span class="realisation-type" style="color: ${bgColor}; background: ${bgColor}12;">${real.type === 'stage' ? 'Stage' : 'Réalisation'}</span>
-                        <h4 class="realisation-title">${real.title}</h4>
-                        <p class="realisation-description">${real.description || ''}</p>
-                        ${real.tags && real.tags.length ? `
+                        <span class="realisation-type" style="color: ${bgColor}; background: ${bgColor}12;">${isProject ? item.type : (item.type === 'stage' ? 'Stage' : 'Réalisation')}</span>
+                        <h4 class="realisation-title">${item.title}</h4>
+                        <p class="realisation-description">${item.description || ''}</p>
+                        ${item.tags && item.tags.length ? `
                             <div class="realisation-tags">
-                                ${real.tags.map(tag => `<span class="tag">${tag.tag}</span>`).join('')}
+                                ${item.tags.map(tag => `<span class="tag">${tag.tag}</span>`).join('')}
                             </div>
                         ` : ''}
                     </div>
@@ -911,6 +968,39 @@ function updateRealisationsArrows() {
     }
 }
 
+function updateCurrentCompanyInfo() {
+    // Récupérer la première réalisation de la page actuelle
+    const start = realisationsPage * ITEMS_PER_PAGE;
+    const firstItem = allRealisations[start];
+    
+    if (!firstItem || !firstItem.company) {
+        // Fallback si pas de company
+        document.getElementById('company-logo-img').src = '';
+        document.getElementById('company-name').textContent = 'Entreprise';
+        document.getElementById('company-sector').textContent = '';
+        document.getElementById('company-location').textContent = '';
+        document.getElementById('company-description').textContent = '';
+        return;
+    }
+    
+    const company = firstItem.company;
+    
+    // Mettre à jour le logo
+    const logoImg = document.getElementById('company-logo-img');
+    if (company.photo_url) {
+        logoImg.src = getImageUrl(company.photo_url);
+        logoImg.alt = company.name;
+    } else {
+        logoImg.src = '';
+    }
+    
+    // Mettre à jour les infos
+    document.getElementById('company-name').textContent = company.name || 'Entreprise';
+    document.getElementById('company-sector').textContent = company.sector || '';
+    document.getElementById('company-location').textContent = company.location ? `📍 ${company.location}` : '';
+    document.getElementById('company-description').textContent = company.description || '';
+}
+
 function renderProjects(projects) {
     if (!projects || !projects.length) return;
 
@@ -944,36 +1034,47 @@ function renderProjectsPage() {
         const color = typeColors[projet.type] || '#6B73FF';
 
         const projectHtml = `
-            <a href="projet/page.html?id=${projet.id}" class="project-card-link">
-                <div class="project-card">
-                    <div class="project-image" style="background: linear-gradient(135deg, ${color}15, ${color}05);">
-                        <div class="project-decoration-1" style="background: ${color};"></div>
-                        <div class="project-decoration-2" style="background: ${color};"></div>
-                        <div class="project-icon" style="background: ${color}; box-shadow: 0 8px 24px ${color}40;">
-                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                                <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3M3 16v3a2 2 0 002 2h3m8 0h3a2 2 0 002-2v-3" stroke="white" stroke-width="2" stroke-linecap="round" />
-                            </svg>
-                        </div>
-                        <span class="project-year" style="color: ${color};">${projet.year}</span>
-                    </div>
-                    <div class="project-content">
-                        <span class="project-type" style="color: ${color}; background: ${color}12; border: 1px solid ${color}25;">${projet.type}</span>
-                        <h3 class="project-title">${projet.title}</h3>
-                        <p class="project-description">${projet.description || ''}</p>
-                        ${projet.tags && projet.tags.length ? `
-                            <div class="project-tags">
-                                ${projet.tags.map(tag => `<span class="tag">${tag.tag}</span>`).join('')}
-                            </div>
-                        ` : ''}
-                    </div>
-                    <span class="card-arrow">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M5 12h14M12 5l7 7-7 7"/>
+    <a href="projet/page.html?id=${projet.id}" class="project-card-link">
+        <div class="project-card">
+            <div class="project-image" style="background: linear-gradient(135deg, ${color}15, ${color}05);">
+                <div class="project-decoration-1" style="background: ${color};"></div>
+                <div class="project-decoration-2" style="background: ${color};"></div>
+
+                ${projet.company?.photo_url ? `
+                    <img src="${getImageUrl(projet.company.photo_url)}" 
+                         alt="${projet.company?.name || ''}" 
+                         class="project-image-logo"
+                         loading="lazy"
+                         onerror="this.style.display='none'; this.closest('.project-image').querySelector('.project-icon').style.display='flex';" />
+                    <div class="project-icon" style="background: ${color}; box-shadow: 0 8px 24px ${color}40; display: none;">
+                ` : `
+                    <div class="project-icon" style="background: ${color}; box-shadow: 0 8px 24px ${color}40;">
+                `}
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                            <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3M3 16v3a2 2 0 002 2h3m8 0h3a2 2 0 002-2v-3" stroke="white" stroke-width="2" stroke-linecap="round" />
                         </svg>
-                    </span>
-                </div>
-            </a>
-        `;
+                    </div>
+
+                <span class="project-year" style="color: ${color};">${projet.year}</span>
+            </div>
+            <div class="project-content">
+                <span class="project-type" style="color: ${color}; background: ${color}12; border: 1px solid ${color}25;">${projet.type}</span>
+                <h3 class="project-title">${projet.title}</h3>
+                <p class="project-description">${projet.description || ''}</p>
+                ${projet.tags && projet.tags.length ? `
+                    <div class="project-tags">
+                        ${projet.tags.map(tag => `<span class="tag">${tag.tag}</span>`).join('')}
+                    </div>
+                ` : ''}
+            </div>
+            <span class="card-arrow">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </span>
+        </div>
+    </a>
+`;
 
         container.innerHTML += projectHtml;
     });
@@ -1090,7 +1191,7 @@ async function renderAllSections(data) {
     renderPortfolio(data);
     renderStages(data.stages);
     renderRealisations(data);
-    renderProjects(data.projects);
+    // renderProjects n'est plus appelé - fusionné avec renderRealisations
     
     // Charger les formations (peut être dans /all ou séparément)
     if (data.formations) {

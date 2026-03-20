@@ -235,12 +235,22 @@
           <div id="stages-timeline" class="timeline"></div>
         </div>
 
-        <!-- Realisations par entreprise -->
-        <div class="company-realisations">
-          <h3>
-            Réalisations par
-            <span class="italic accent">entreprise</span>
-          </h3>
+        <!-- Réalisations et Projets Section Fusionnée -->
+        <div class="section-header-flex">
+          <div>
+            <div class="section-label">
+              <div class="label-line"></div>
+              <span>Portfolio</span>
+            </div>
+            <h2>Mes <span class="italic accent">réalisations</span></h2>
+          </div>
+          <p class="section-description">
+            Projets réalisés en formation, en stage et en autonomie, couvrant
+            les différents blocs de compétences du BTS SIO.
+          </p>
+        </div>
+
+        <div class="realisation-projects-wrapper">
           <div class="paginated-container">
             <button
               class="pagination-arrow prev"
@@ -258,7 +268,10 @@
                 <path d="M15 18l-6-6 6-6" />
               </svg>
             </button>
-            <div id="realisations-by-company" class="paginated-grid"></div>
+            <div
+              id="realisations-by-company"
+              class="paginated-grid items-2-per-page"
+            ></div>
             <button
               class="pagination-arrow next"
               id="realisations-next"
@@ -278,61 +291,6 @@
           </div>
           <div class="pagination-dots" id="realisations-dots"></div>
         </div>
-      </div>
-    </section>
-
-    <!-- Projets Section -->
-    <section id="projets">
-      <div class="section-container">
-        <div class="section-header-flex">
-          <div>
-            <div class="section-label">
-              <div class="label-line"></div>
-              <span>Portfolio</span>
-            </div>
-            <h2>Mes <span class="italic accent">réalisations</span></h2>
-          </div>
-          <p class="section-description">
-            Projets réalisés en formation, en stage et en autonomie, couvrant
-            les différents blocs de compétences du BTS SIO.
-          </p>
-        </div>
-        <div class="paginated-container">
-          <button
-            class="pagination-arrow prev"
-            id="projects-prev"
-            aria-label="Précédent"
-          >
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </button>
-          <div id="projects-grid" class="projects-grid paginated-grid"></div>
-          <button
-            class="pagination-arrow next"
-            id="projects-next"
-            aria-label="Suivant"
-          >
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path d="M9 18l6-6-6-6" />
-            </svg>
-          </button>
-        </div>
-        <div class="pagination-dots" id="projects-dots"></div>
       </div>
     </section>
 
