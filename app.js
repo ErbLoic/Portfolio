@@ -587,7 +587,8 @@ function renderPortfolio(data) {
     document.getElementById('promo-years').textContent = `${portfolio.year_start} — ${portfolio.year_end}`;
 
     // Stats
-    document.getElementById('stat-competences').textContent = data.competences?.length || 0;
+    const statComp = document.getElementById('stat-competences');
+    if (statComp) statComp.textContent = data.competences?.length || 0;
     document.getElementById('stat-projects').textContent = data.projects?.length || 0;
     document.getElementById('stat-stages').textContent = data.stages?.length || 0;
 
@@ -601,6 +602,22 @@ function renderPortfolio(data) {
     }
     if (portfolio.github_url) {
         document.getElementById('contact-github').href = portfolio.github_url;
+    }
+
+    // CV
+    const cvBtn = document.getElementById('hero-cv-btn');
+    if (cvBtn && portfolio.cv_url) {
+        cvBtn.href = portfolio.cv_url;
+        cvBtn.style.display = '';
+    }
+    const cvSection = document.getElementById('cv-section');
+    if (cvSection) {
+        if (portfolio.cv_url) {
+            document.getElementById('cv-download-btn').href = portfolio.cv_url;
+            cvSection.style.display = '';
+        } else {
+            cvSection.style.display = 'none';
+        }
     }
 
     // Footer
@@ -670,27 +687,48 @@ function renderStages(stages) {
         const isRight = index % 2 === 1;
         const hasCompetences = stage.competences && stage.competences.length > 0;
 
+        const companyName = stage.company?.name || 'Entreprise';
+        const companyInitial = companyName.charAt(0).toUpperCase();
+        const logoInner = stage.company?.photo_url
+            ? `<img src="${getImageUrl(stage.company.photo_url)}" alt="${companyName}" loading="lazy"
+                    onerror="this.style.display='none';this.parentElement.dataset.fallback='${companyInitial}';this.parentElement.classList.add('stage-logo-col--fallback');" />`
+            : ``;
+        const logoColClass = stage.company?.photo_url ? '' : 'stage-logo-col--fallback';
+
         const stageHtml = `
             <div class="timeline-item ${isRight ? 'right' : ''}">
                 <div class="timeline-dot"></div>
                 <div class="stage-card" ${isRight ? 'style="grid-column: 2;"' : ''}>
-                    <div class="stage-header">
-                        <div>
-                            <p class="stage-dates">${formatDate(stage.start_date)} — ${formatDate(stage.end_date)}</p>
-                            <h4 class="stage-company">${stage.company?.name || 'Entreprise'}</h4>
-                            <p class="stage-meta">${stage.company?.sector || ''} — ${stage.role || ''}</p>
+                    <div class="stage-card-inner">
+                        <div class="stage-logo-col ${logoColClass}" data-fallback="${companyInitial}">
+                            ${logoInner}
                         </div>
-                        <span class="stage-duration">${stage.duration || ''}</span>
+                        <div class="stage-content">
+                            <div class="stage-content-top">
+                                <div>
+                                    <h4 class="stage-company">${companyName}</h4>
+                                    ${stage.company?.sector ? `<p class="stage-sector">${stage.company.sector}</p>` : ''}
+                                </div>
+                                <span class="stage-work-badge">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
+                                    Stage
+                                </span>
+                            </div>
+                            <div class="stage-divider"></div>
+                            ${stage.role ? `<p class="stage-role">${stage.role}</p>` : ''}
+                            <div class="stage-meta-row">
+                                <p class="stage-dates">${formatDate(stage.start_date)} — ${formatDate(stage.end_date)}</p>
+                                ${stage.duration ? `<span class="stage-duration">${stage.duration}</span>` : ''}
+                            </div>
+                            ${stage.description ? `<p class="stage-description">${stage.description}</p>` : ''}
+                            ${hasCompetences ? `
+                                <div class="stage-competences">
+                                    <span class="competences-label">COMPÉTENCES:</span>
+                                    ${stage.competences.map(comp => `<span class="competence-tag">${comp.code}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
                     </div>
-                    <p class="stage-description">${stage.description || ''}</p>
-                    ${hasCompetences ? `
-                        <div class="stage-competences">
-                            <span class="competences-label">COMPÉTENCES:</span>
-                            ${stage.competences.map(comp => `
-                                <span class="competence-tag">${comp.code}</span>
-                            `).join('')}
-                        </div>
-                    ` : ''}
                 </div>
                 ${isRight ? '' : '<div></div>'}
             </div>
@@ -720,28 +758,46 @@ function renderFormations(formations) {
     sortedFormations.forEach((formation, index) => {
         const isRight = index % 2 === 1;
         const period = formation.period || `${formatDate(formation.start_date)} — ${formation.is_current ? 'En cours' : formatDate(formation.end_date)}`;
+        const schoolName = formation.school || 'École';
+        const schoolInitial = schoolName.charAt(0).toUpperCase();
+
+        const logoInner = formation.logo_url
+            ? `<img src="${getImageUrl(formation.logo_url)}" alt="${schoolName}" loading="lazy"
+                    onerror="this.style.display='none';this.parentElement.dataset.fallback='${schoolInitial}';this.parentElement.classList.add('form-logo-col--fallback');" />`
+            : ``;
+        const logoColClass = formation.logo_url ? '' : 'form-logo-col--fallback';
+
+        const rightBadge = formation.is_current
+            ? `<span class="formation-current-badge"><span class="formation-current-dot"></span> En cours</span>`
+            : (formation.degree_type ? `<span class="formation-degree-badge">${formation.degree_type}</span>` : '');
 
         const formationHtml = `
-            <div class="timeline-item ${isRight ? 'right' : ''}">
-                <div class="timeline-dot"></div>
-                <div class="stage-card formation-card" ${isRight ? 'style="grid-column: 2;"' : ''}>
-                    <div class="stage-header">
-                        <div>
-                            <p class="stage-dates">${period}</p>
-                            <h4 class="stage-company">${formation.title || 'Formation'}</h4>
-                            <p class="stage-meta">${formation.school || ''} ${formation.location ? '— ' + formation.location : ''}</p>
+            <div class="timeline-item formation ${isRight ? 'right' : ''}">
+                <div class="timeline-dot formation-dot"></div>
+                <div class="formation-card-v2" ${isRight ? 'style="grid-column: 2;"' : ''}>
+                    <div class="stage-card-inner">
+                        <div class="form-logo-col ${logoColClass}" data-fallback="${schoolInitial}">
+                            ${logoInner}
                         </div>
-                        ${formation.degree_type ? `<span class="stage-duration">${formation.degree_type}</span>` : ''}
+                        <div class="stage-content">
+                            <div class="stage-content-top">
+                                <div>
+                                    <h4 class="stage-company">${formation.title || 'Formation'}</h4>
+                                    <p class="form-school">${schoolName}${formation.location ? ' — ' + formation.location : ''}</p>
+                                </div>
+                                <span class="formation-badge">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                                    Formation
+                                </span>
+                            </div>
+                            <div class="stage-divider form-divider"></div>
+                            <div class="stage-meta-row">
+                                <p class="formation-dates">${period}</p>
+                                ${rightBadge}
+                            </div>
+                            ${formation.description ? `<p class="stage-description">${formation.description}</p>` : ''}
+                        </div>
                     </div>
-                    ${formation.description ? `<p class="stage-description">${formation.description}</p>` : ''}
-                    ${formation.logo_url ? `
-                        <div class="formation-logo">
-                            <img src="${getImageUrl(formation.logo_url)}" 
-                                 alt="${formation.school}" 
-                                 loading="lazy" 
-                                 onerror="this.style.display='none'; this.parentElement.style.display='none';" />
-                        </div>
-                    ` : ''}
                 </div>
                 ${isRight ? '' : '<div></div>'}
             </div>
@@ -1230,6 +1286,9 @@ async function renderAllSections(data) {
         }
     }
     
+    // Animer les nouveaux éléments rendus
+    setTimeout(refreshScrollAnimations, 50);
+
     return true;
 }
 
@@ -1535,3 +1594,101 @@ document.addEventListener('DOMContentLoaded', () => {
         mo.observe(container, { childList: true, subtree: true });
     }
 });
+
+// ----------------------------------------
+// Contact form submission
+// ----------------------------------------
+async function handleContactFormSubmit(e) {
+    e.preventDefault();
+
+    const nameEl    = document.getElementById('cf-name');
+    const emailEl   = document.getElementById('cf-email');
+    const messageEl = document.getElementById('cf-message');
+    const btn       = document.getElementById('cf-submit');
+    const feedback  = document.getElementById('cf-feedback');
+
+    const name    = nameEl.value.trim();
+    const email   = emailEl.value.trim();
+    const message = messageEl.value.trim();
+
+    if (!name || !email || !message) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Envoi en cours…';
+    if (feedback) { feedback.textContent = ''; feedback.className = 'cf-feedback'; }
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/contact`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ name, email, message }),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json.error || json.message || 'Erreur envoi');
+
+        if (feedback) {
+            feedback.textContent = 'Message envoyé avec succès !';
+            feedback.className = 'cf-feedback success';
+        }
+        nameEl.value = '';
+        emailEl.value = '';
+        messageEl.value = '';
+    } catch (err) {
+        if (feedback) {
+            feedback.textContent = err.message || 'Une erreur est survenue.';
+            feedback.className = 'cf-feedback error';
+        }
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Envoyer';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('contact-form');
+    if (form) form.addEventListener('submit', handleContactFormSubmit);
+});
+
+// ----------------------------------------
+// Scroll animations (Intersection Observer)
+// ----------------------------------------
+function initScrollAnimations() {
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('anim-in');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+    // Éléments à animer au scroll
+    const selectors = [
+        '.section-label',
+        'section h2',
+        '.stat-item',
+        '.timeline-item',
+        '.realisation-card',
+        '.project-card',
+        '.competence-bloc',
+        '.contact-card',
+        '.contact-form',
+        '#cv-section .cv-section-inner > *',
+        '.profil-text > *',
+        '.profil-photo-wrap',
+    ];
+
+    document.querySelectorAll(selectors.join(',')).forEach((el, i) => {
+        el.classList.add('anim-ready');
+        // décalage léger par groupe de 4
+        el.style.transitionDelay = `${(i % 4) * 60}ms`;
+        observer.observe(el);
+    });
+}
+
+// Re-appelé après chaque render pour animer les nouveaux éléments
+function refreshScrollAnimations() {
+    initScrollAnimations();
+}
+
+document.addEventListener('DOMContentLoaded', initScrollAnimations);
