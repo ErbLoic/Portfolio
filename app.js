@@ -185,6 +185,7 @@ let realisationsPage = 0;
 let allProjects = [];
 let allRealisations = [];
 const ITEMS_PER_PAGE = 2;
+let realisationsAutoScroll = null;
 
 // Messages carousel state
 let messagesIndex = 0;
@@ -839,26 +840,31 @@ function renderRealisations(data) {
     allRealisationsOnly.sort((a, b) => {
         const dateA = new Date(a.end_date || a.start_date);
         const dateB = new Date(b.end_date || b.start_date);
-        return dateB - dateA;
+        return dateA - dateB; // Plus ancien en premier
     });
 
     // Trier les projets par année
     allProjectsOnly.sort((a, b) => {
-        const yearA = parseInt(a.year) || 0;
-        const yearB = parseInt(b.year) || 0;
+        const yearA = parseInt(a.day) || 0;
+        const yearB = parseInt(b.day) || 0;
         return yearB - yearA;
     });
 
-    // Combiner : entrelasser réalisations et projets (1 réal, 1 projet, 1 réal, 1 projet...)
+    // Trier réalisations par start_date desc (plus récente en premier)
+    allRealisationsOnly.sort((a, b) => {
+        const dA = new Date(a.start_date); const dB = new Date(b.start_date);
+        return (isNaN(dB) ? 0 : dB.getTime()) - (isNaN(dA) ? 0 : dA.getTime());
+    });
+
+    // Trier projets par year desc (plus récent en premier)
+    allProjectsOnly.sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0));
+
+    // Interleave : position impaire = réalisation, position paire = projet
     allRealisations = [];
     const maxLen = Math.max(allRealisationsOnly.length, allProjectsOnly.length);
     for (let i = 0; i < maxLen; i++) {
-        if (i < allRealisationsOnly.length) {
-            allRealisations.push(allRealisationsOnly[i]);
-        }
-        if (i < allProjectsOnly.length) {
-            allRealisations.push(allProjectsOnly[i]);
-        }
+        if (i < allRealisationsOnly.length) allRealisations.push(allRealisationsOnly[i]);
+        if (i < allProjectsOnly.length) allRealisations.push(allProjectsOnly[i]);
     }
 
     // Reset la page et affiche
@@ -957,13 +963,31 @@ function renderRealisationsPage() {
     updateRealisationsArrows();
 }
 
+function startRealisationsAutoScroll() {
+    stopRealisationsAutoScroll();
+    const totalPages = Math.ceil(allRealisations.length / ITEMS_PER_PAGE);
+    if (totalPages <= 1) return;
+    realisationsAutoScroll = setInterval(() => {
+        realisationsPage = (realisationsPage + 1) % totalPages;
+        renderRealisationsPage();
+    }, 30000);
+}
+
+function stopRealisationsAutoScroll() {
+    if (realisationsAutoScroll) {
+        clearInterval(realisationsAutoScroll);
+        realisationsAutoScroll = null;
+    }
+}
+
 function initRealisationsPagination() {
     const prevBtn = document.getElementById('realisations-prev');
     const nextBtn = document.getElementById('realisations-next');
     const dotsContainer = document.getElementById('realisations-dots');
-    
+    const carousel = document.getElementById('realisations-by-company')?.closest('.paginated-container');
+
     const totalPages = Math.ceil(allRealisations.length / ITEMS_PER_PAGE);
-    
+
     // Créer les dots
     dotsContainer.innerHTML = '';
     for (let i = 0; i < totalPages; i++) {
@@ -973,26 +997,36 @@ function initRealisationsPagination() {
         dot.addEventListener('click', () => {
             realisationsPage = i;
             renderRealisationsPage();
+            startRealisationsAutoScroll();
         });
         dotsContainer.appendChild(dot);
     }
-    
+
     // Event listeners pour les flèches
     prevBtn.onclick = () => {
         if (realisationsPage > 0) {
             realisationsPage--;
             renderRealisationsPage();
+            startRealisationsAutoScroll();
         }
     };
-    
+
     nextBtn.onclick = () => {
         if (realisationsPage < totalPages - 1) {
             realisationsPage++;
             renderRealisationsPage();
+            startRealisationsAutoScroll();
         }
     };
-    
+
+    // Pause au hover
+    if (carousel) {
+        carousel.addEventListener('mouseenter', stopRealisationsAutoScroll);
+        carousel.addEventListener('mouseleave', startRealisationsAutoScroll);
+    }
+
     updateRealisationsArrows();
+    startRealisationsAutoScroll();
 }
 
 function updateRealisationsDots() {
