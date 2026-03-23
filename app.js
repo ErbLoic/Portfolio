@@ -894,20 +894,22 @@ function renderRealisationsPage() {
         let bgColor;
         if (isProject) {
             const projectTypeColors = {
-                'Application Web': '#000DFF',
-                'Web': '#000DFF',
-                'Application Mobile': '#6B73FF',
-                'Flutter': '#6B73FF',
-                'Script & Automatisation': '#3b44d1',
-                'Application C#': '#FF6B35',
-                'Base de données': '#8b92ff',
-                'BDD': '#8b92ff',
+                'Application Web': '#0EA5E9',
+                'Web': '#0EA5E9',
+                'Application Mobile': '#A855F7',
+                'Flutter': '#06B6D4',
+                'Script & Automatisation': '#F59E0B',
+                'Application C#': '#EF4444',
+                'Base de données': '#10B981',
+                'BDD': '#10B981',
             };
-            bgColor = projectTypeColors[item.type] || '#6B73FF';
+            const colorIndex = item.id ? parseInt(item.id.toString()) : 0;
+            const fallbackColors = ['#7C3AED', '#EC4899', '#6366F1', '#14B8A6', '#FB923C', '#84CC16', '#F43F5E', '#22D3EE'];
+            bgColor = projectTypeColors[item.type] || fallbackColors[colorIndex % fallbackColors.length];
         } else {
-            const companyColor = item.company?.id ? parseInt(item.company.id.toString()) % 4 : 0;
-            const colors = ['#FF6B6B', '#FFA726', '#29B6F6', '#66BB6A'];
-            bgColor = colors[companyColor % 4];
+            const colorIndex = item.id ? parseInt(item.id.toString()) : 0;
+            const colors = ['#7C3AED', '#0EA5E9', '#F59E0B', '#10B981', '#EF4444', '#EC4899', '#6366F1', '#14B8A6', '#F43F5E', '#8B5CF6', '#06B6D4', '#84CC16', '#FB923C', '#A855F7', '#22D3EE', '#4ADE80'];
+            bgColor = colors[colorIndex % colors.length];
         }
         
         const realHtml = `
